@@ -5,6 +5,9 @@ namespace App\Models;
 use App\Enums\MaintenancePriority;
 use App\Enums\MaintenanceStatus;
 use App\Models\Concerns\BelongsToLandlord;
+use App\Notifications\MaintenanceRequestCreatedNotification;
+use App\Notifications\MaintenanceStatusChangedNotification;
+use App\Support\Notifications\NotificationRecipients;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -41,6 +44,27 @@ class MaintenanceRequest extends Model implements HasMedia
     public function registerMediaCollections(): void
     {
         $this->addMediaCollection('photos');
+    }
+
+    protected static function booted(): void
+    {
+        static::created(function (MaintenanceRequest $request) {
+            NotificationRecipients::landlordOperators((int) $request->landlord_id)
+                ->each(fn (User $user) => $user->notify(new MaintenanceRequestCreatedNotification($request)));
+        });
+
+        static::updated(function (MaintenanceRequest $request) {
+            if (! $request->wasChanged('status')) {
+                return;
+            }
+
+            $oldStatus = MaintenanceStatus::tryFrom((int) $request->getOriginal('status'));
+            $newStatus = $request->status instanceof MaintenanceStatus
+                ? $request->status
+                : MaintenanceStatus::from((int) $request->status);
+
+            $request->tenant?->notify(new MaintenanceStatusChangedNotification($request, $oldStatus, $newStatus));
+        });
     }
 
     public function tenant(): BelongsTo

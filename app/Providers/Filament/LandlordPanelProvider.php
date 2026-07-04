@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Billing;
 use App\Filament\Pages\ConsumptionHistory;
 use App\Filament\Pages\MonthlyBilling;
@@ -13,11 +14,15 @@ use App\Filament\Resources\PropertyUtilityResource;
 use App\Filament\Resources\RentalResource;
 use App\Filament\Resources\UnitResource;
 use App\Filament\Resources\UtilityUsageResource;
-use App\Filament\Resources\UtilityWaiverResource;
+use App\Filament\Widgets\OverdueInvoicesWidget;
 use App\Filament\Widgets\PortfolioStatsWidget;
+use App\Filament\Widgets\RevenueChartWidget;
+use App\Filament\Widgets\RoomStatusWidget;
 use App\Filament\Widgets\SubscriptionStatusWidget;
+use App\Filament\Widgets\UtilityUsageWidget;
 use App\Http\Middleware\EnsureActiveSubscription;
 use App\Http\Middleware\SetLocale;
+use App\Support\ActiveProperty;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -50,12 +55,14 @@ class LandlordPanelProvider extends PanelProvider
         return $panel
             ->id('landlord')
             ->path('landlord')
-            ->login(\App\Filament\Pages\Auth\Login::class)
-            ->brandName('RentWise')
+            ->brandName(__('ngeay juol'))
+            ->brandLogo(asset('Khmer%20House%20Key.svg'))
+            ->brandLogoHeight('2.25rem')
             ->font('Plus Jakarta Sans')
             ->sidebarCollapsibleOnDesktop()
             ->sidebarWidth('17rem')
             ->globalSearch(false)
+            ->databaseNotifications()
             ->colors([
                 'primary' => Color::Emerald,
                 'gray' => Color::Slate,
@@ -67,6 +74,10 @@ class LandlordPanelProvider extends PanelProvider
                 PanelsRenderHook::HEAD_END,
                 fn (): string => '<link rel="stylesheet" href="'.asset('css/rentwise-admin.css').'?v='.@filemtime(public_path('css/rentwise-admin.css')).'">',
             )
+            ->renderHook(
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn (): string => view('filament.components.language-switcher'),
+            )
             // Property context switcher at the top of the sidebar — landlord panel only.
             ->renderHook(
                 PanelsRenderHook::SIDEBAR_NAV_START,
@@ -74,7 +85,7 @@ class LandlordPanelProvider extends PanelProvider
             )
             ->navigationGroups([
                 'PropertyContext' => NavigationGroup::make()
-                    ->label(fn () => \App\Support\ActiveProperty::name() ?? __('This property')),
+                    ->label(fn () => ActiveProperty::name() ?? __('This property')),
                 'Portfolio' => NavigationGroup::make()->label(fn () => __('Portfolio')),
                 'Properties' => NavigationGroup::make()->label(fn () => __('Properties')),
                 'Tenancy' => NavigationGroup::make()->label(fn () => __('Tenancy')),
@@ -110,7 +121,6 @@ class LandlordPanelProvider extends PanelProvider
                 PaymentResource::class,
                 PropertyUtilityResource::class,
                 UtilityUsageResource::class,
-                UtilityWaiverResource::class,
             ])
             ->pages([
                 Dashboard::class,
@@ -123,6 +133,10 @@ class LandlordPanelProvider extends PanelProvider
                 AccountWidget::class,
                 PortfolioStatsWidget::class,
                 SubscriptionStatusWidget::class,
+                RoomStatusWidget::class,
+                UtilityUsageWidget::class,
+                RevenueChartWidget::class,
+                OverdueInvoicesWidget::class,
             ])
             ->middleware([
                 EncryptCookies::class,

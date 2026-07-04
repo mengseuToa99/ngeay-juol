@@ -91,10 +91,10 @@ class UnitResource extends Resource implements HasShieldPermissions
         return $table
             ->columns([
                 // Property is implied in a property context — only show it cross-property.
-                Tables\Columns\TextColumn::make('property.name')->label('Property')
+                Tables\Columns\TextColumn::make('property.name')->label(__('Property'))
                     ->visible(fn () => ActiveProperty::id() === null)
                     ->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('floor_number')->label('Floor')->sortable()->toggleable(),
+                Tables\Columns\TextColumn::make('floor_number')->label(__('Floor'))->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('room_number')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('room_type')->toggleable(),
                 Tables\Columns\TextColumn::make('rent_amount')->money('USD')->sortable(),
@@ -103,13 +103,13 @@ class UnitResource extends Resource implements HasShieldPermissions
                     ->action(static::endTenancyAction())
                     ->tooltip(fn (Unit $record) => $record->activeRental ? __('Click to end tenancy') : null),
                 // Who currently rents the room (the active tenancy's occupant).
-                Tables\Columns\TextColumn::make('activeRental.occupant_name')->label('Tenant')
+                Tables\Columns\TextColumn::make('activeRental.occupant_name')->label(__('Tenant'))
                     ->state(fn (Unit $record) => $record->activeRental?->occupant_name
                         ?: $record->activeRental?->tenant?->name)
                     ->description(fn (Unit $record) => $record->activeRental?->tenant?->username)
                     ->placeholder('— vacant —')
                     ->searchable(),
-                Tables\Columns\TextColumn::make('account.username')->label('Login')
+                Tables\Columns\TextColumn::make('account.username')->label(__('Login'))
                     ->placeholder('— no account —')->copyable()->toggleable(),
             ])
             ->defaultSort('room_number')
@@ -366,7 +366,7 @@ class UnitResource extends Resource implements HasShieldPermissions
     }
 
     /** The property's meter-based, active utilities (Metered / Shared) for a room. */
-    protected static function meterUtilitiesFor(Unit $record): \Illuminate\Support\Collection
+    public static function meterUtilitiesFor(Unit $record): \Illuminate\Support\Collection
     {
         return PropertyUtility::query()
             ->where('property_id', $record->property_id)
@@ -377,7 +377,7 @@ class UnitResource extends Resource implements HasShieldPermissions
     }
 
     /** Most recent reading for a room + utility, or null if none yet. */
-    protected static function latestUsage(int $unitId, int $utilityId): ?UtilityUsage
+    public static function latestUsage(int $unitId, int $utilityId): ?UtilityUsage
     {
         return UtilityUsage::query()
             ->where('unit_id', $unitId)
@@ -392,7 +392,7 @@ class UnitResource extends Resource implements HasShieldPermissions
      * reading's consumption is measured from. Same ordering as the billing flows
      * (MonthlyBilling / BuildsInvoiceForm) so baselines stay consistent.
      */
-    protected static function priorReading(int $unitId, int $utilityId, string $date): ?UtilityUsage
+    public static function priorReading(int $unitId, int $utilityId, string $date): ?UtilityUsage
     {
         return UtilityUsage::query()
             ->where('unit_id', $unitId)
@@ -404,7 +404,7 @@ class UnitResource extends Resource implements HasShieldPermissions
     }
 
     /** Trim a decimal(…,3) reading to a clean string ("1,251", "11", "1.5"). */
-    protected static function trimReading($value): string
+    public static function trimReading($value): string
     {
         return rtrim(rtrim(number_format((float) $value, 3), '0'), '.');
     }

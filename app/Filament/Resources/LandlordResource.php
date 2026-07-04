@@ -5,6 +5,7 @@ namespace App\Filament\Resources;
 use App\Filament\Resources\LandlordResource\Pages;
 use App\Filament\Resources\LandlordResource\RelationManagers;
 use App\Enums\UserStatus;
+use App\Filament\Forms\LocationFields;
 use App\Models\User;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -57,7 +58,7 @@ class LandlordResource extends Resource
                     Forms\Components\TextInput::make('username')
                         ->unique(ignoreRecord: true)
                         ->maxLength(255)
-                        ->helperText('Login name for the landlord.'),
+                        ->helperText(__('Login name for the landlord.')),
                     Forms\Components\TextInput::make('phone_number')->tel(),
                     Forms\Components\TextInput::make('password')
                         ->password()
@@ -70,6 +71,10 @@ class LandlordResource extends Resource
                         ->default(UserStatus::Active)
                         ->required(),
                 ])->columns(2),
+
+            Forms\Components\Section::make(__('Location'))
+                ->schema(LocationFields::make())
+                ->columns(2),
 
             Forms\Components\Section::make(__('Company & banking'))
                 ->relationship('landlordProfile')
@@ -107,10 +112,10 @@ class LandlordResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('email')->searchable()->copyable()->placeholder('—'),
-                Tables\Columns\TextColumn::make('phone_number')->label('Phone')->placeholder('—')->toggleable(),
-                Tables\Columns\TextColumn::make('landlordProfile.company_name')->label('Company')->placeholder('—')->toggleable(),
-                Tables\Columns\TextColumn::make('properties_count')->label('Properties')->badge()->sortable(),
-                Tables\Columns\TextColumn::make('rentals_as_landlord_count')->label('Tenancies')->badge()->color('gray')->sortable(),
+                Tables\Columns\TextColumn::make('phone_number')->label(__('Tenancies'))->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('landlordProfile.company_name')->label(__('Properties'))->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('properties_count')->label(__('Properties'))->badge()->sortable(),
+                Tables\Columns\TextColumn::make('rentals_as_landlord_count')->label(__('Tenancies'))->badge()->color('gray')->sortable(),
                 Tables\Columns\TextColumn::make('status')->badge(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
@@ -135,17 +140,17 @@ class LandlordResource extends Resource
                     Infolists\Components\TextEntry::make('name'),
                     Infolists\Components\TextEntry::make('email')->placeholder('—'),
                     Infolists\Components\TextEntry::make('username')->placeholder('—'),
-                    Infolists\Components\TextEntry::make('phone_number')->label('Phone')->placeholder('—'),
+                    Infolists\Components\TextEntry::make('phone_number')->label(__('Phone'))->placeholder('—'),
                     Infolists\Components\TextEntry::make('status')->badge(),
-                    Infolists\Components\TextEntry::make('properties_count')->label('Properties')->badge(),
+                    Infolists\Components\TextEntry::make('properties_count')->label(__('Properties'))->badge(),
                 ])->columns(3),
 
             Infolists\Components\Section::make(__('Company & banking'))
                 ->schema([
-                    Infolists\Components\TextEntry::make('landlordProfile.company_name')->label('Company')->placeholder('—'),
-                    Infolists\Components\TextEntry::make('landlordProfile.bank_name')->label('Bank')->placeholder('—'),
-                    Infolists\Components\TextEntry::make('landlordProfile.bank_account_name')->label('Account name')->placeholder('—'),
-                    Infolists\Components\TextEntry::make('landlordProfile.bank_account_number')->label('Account number')->placeholder('—'),
+                    Infolists\Components\TextEntry::make('landlordProfile.company_name')->label(__('Company'))->placeholder('—'),
+                    Infolists\Components\TextEntry::make('landlordProfile.bank_name')->label(__('Bank'))->placeholder('—'),
+                    Infolists\Components\TextEntry::make('landlordProfile.bank_account_name')->label(__('Account name'))->placeholder('—'),
+                    Infolists\Components\TextEntry::make('landlordProfile.bank_account_number')->label(__('Account number'))->placeholder('—'),
                 ])->columns(2)
                 ->visible(fn (User $record) => $record->landlordProfile !== null),
         ]);

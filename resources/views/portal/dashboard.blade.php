@@ -24,6 +24,19 @@
         </div>
     @endif
 
+    <div class="mt-5 grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <a href="{{ route('portal.maintenance.index') }}"
+           class="rounded-xl bg-white p-4 shadow transition hover:shadow-md">
+            <p class="text-xs uppercase tracking-wide text-slate-400">{{ __('Maintenance') }}</p>
+            <p class="mt-1 font-semibold text-slate-900">{{ __('View requests') }}</p>
+        </a>
+        <a href="{{ route('portal.maintenance.create') }}"
+           class="rounded-xl bg-emerald-600 p-4 text-white shadow transition hover:bg-emerald-700">
+            <p class="text-xs uppercase tracking-wide text-emerald-100">{{ __('Maintenance') }}</p>
+            <p class="mt-1 font-semibold">{{ __('New request') }}</p>
+        </a>
+    </div>
+
     <h2 class="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">{{ __('Invoices') }}</h2>
 
     @forelse ($invoices as $invoice)

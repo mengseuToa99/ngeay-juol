@@ -29,11 +29,11 @@ class SubscriptionPaymentRelationManager extends RelationManager
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('paid_at')
-                    ->label('Date')
+                    ->label(__('Date'))
                     ->dateTime()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('receipt_number')
-                    ->label('Receipt')
+                    ->label(__('Receipt'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money(fn ($record) => $record->currency)
@@ -41,16 +41,16 @@ class SubscriptionPaymentRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('status')
                     ->badge(),
                 Tables\Columns\TextColumn::make('method')
-                    ->label('Method'),
+                    ->label(__('Method')),
                 Tables\Columns\TextColumn::make('gateway')
                     ->badge()
                     ->color('gray'),
                 Tables\Columns\TextColumn::make('covers_from')
-                    ->label('Period')
+                    ->label(__('Period'))
                     ->date()
                     ->description(fn ($record) => $record->covers_to?->format('Y-m-d')),
                 Tables\Columns\TextColumn::make('recordedBy.name')
-                    ->label('Recorded by')
+                    ->label(__('Recorded by'))
                     ->placeholder('—'),
             ])
             ->filters([

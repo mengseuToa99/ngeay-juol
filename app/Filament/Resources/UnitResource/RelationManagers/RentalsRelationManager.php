@@ -36,7 +36,23 @@ class RentalsRelationManager extends RelationManager
                 ->schema([
                     Forms\Components\TextInput::make('occupant_name')->label(__('Full name'))->required()->maxLength(255),
                     Forms\Components\TextInput::make('occupant_phone')->label(__('Phone'))->tel(),
+                    Forms\Components\Select::make('occupant_gender')
+                        ->label(__('Gender'))
+                        ->options([
+                            'male' => __('Male'),
+                            'female' => __('Female'),
+                            'other' => __('Other'),
+                        ])
+                        ->placeholder(__('Select gender')),
+                    Forms\Components\DatePicker::make('occupant_dob')
+                        ->label(__('Date of birth'))
+                        ->maxDate(now()),
+                    Forms\Components\TextInput::make('occupant_nationality')->label(__('Nationality'))
+                        ->placeholder(__('e.g. Khmer, Vietnamese')),
+                    Forms\Components\TextInput::make('occupant_workplace')->label(__('Workplace'))
+                        ->placeholder(__('e.g. company name')),
                     Forms\Components\TextInput::make('occupant_id_card')->label(__('ID card number')),
+                    
                     Forms\Components\SpatieMediaLibraryFileUpload::make('id_cards')
                         ->collection('id_cards')
                         ->label(__('ID card photos'))
@@ -46,6 +62,7 @@ class RentalsRelationManager extends RelationManager
                         ->maxFiles(4)
                         ->helperText(__('Front/back of national ID, passport, etc.'))
                         ->columnSpanFull(),
+                    
                     Forms\Components\Select::make('status')
                         ->options(RentalStatus::class)
                         ->default(RentalStatus::Active)
@@ -94,11 +111,33 @@ class RentalsRelationManager extends RelationManager
                         ->columnSpanFull(),
                 ])->columns(2),
 
-            Forms\Components\Section::make(__('Agreement'))
+            Forms\Components\Section::make(__('Agreement & Emergency / Guarantor Details'))
                 ->collapsed()
                 ->schema([
                     Forms\Components\TextInput::make('occupant_address')->label(__('Address'))->columnSpanFull(),
+                    
+                    Forms\Components\Fieldset::make(__('Emergency contact'))
+                        ->schema([
+                            Forms\Components\TextInput::make('emergency_contact_name')->label(__('Name')),
+                            Forms\Components\TextInput::make('emergency_contact_phone')->label(__('Phone'))->tel(),
+                            Forms\Components\TextInput::make('emergency_contact_relationship')
+                                ->label(__('Relationship'))
+                                ->placeholder(__('e.g. mother, brother')),
+                        ])->columns(3),
+
+                    Forms\Components\Fieldset::make(__('Guarantor'))
+                        ->schema([
+                            Forms\Components\TextInput::make('guarantor_name')->label(__('Name')),
+                            Forms\Components\TextInput::make('guarantor_phone')->label(__('Phone'))->tel(),
+                            Forms\Components\TextInput::make('guarantor_id_number')->label(__('ID number')),
+                            Forms\Components\TextInput::make('guarantor_address')->label(__('Address')),
+                        ])->columns(2),
+
                     Forms\Components\Textarea::make('terms_conditions')->label(__('Terms & conditions'))->columnSpanFull(),
+                    Forms\Components\Textarea::make('notes')
+                        ->label(__('Notes'))
+                        ->placeholder(__('Private notes about this tenancy'))
+                        ->columnSpanFull(),
                 ]),
         ]);
     }

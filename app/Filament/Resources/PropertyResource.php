@@ -64,10 +64,10 @@ class PropertyResource extends Resource
                 ->schema([
                     Forms\Components\TextInput::make('address_line'),
                     Forms\Components\TextInput::make('street'),
-                    Forms\Components\TextInput::make('village')->label('Village (Phum)'),
-                    Forms\Components\TextInput::make('commune')->label('Commune (Sangkat)'),
-                    Forms\Components\TextInput::make('district')->label('District (Khan)'),
-                    Forms\Components\TextInput::make('city')->label('Province / City'),
+                    Forms\Components\TextInput::make('village')->label(__('Province / City')),
+                    Forms\Components\TextInput::make('commune')->label(__('Landlord')),
+                    Forms\Components\TextInput::make('district')->label(__('Units')),
+                    Forms\Components\TextInput::make('city')->label(__('Province / City')),
                     Forms\Components\TextInput::make('postal_code'),
                 ])->columns(2),
 
@@ -85,12 +85,12 @@ class PropertyResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('landlord.name')
-                    ->label('Landlord')
+                    ->label(__('Landlord'))
                     ->visible(fn () => auth()->user()?->isPlatformStaff())
                     ->searchable(),
                 Tables\Columns\TextColumn::make('property_type')->badge(),
                 Tables\Columns\TextColumn::make('city')->searchable()->toggleable(),
-                Tables\Columns\TextColumn::make('units_count')->counts('units')->label('Units')->badge(),
+                Tables\Columns\TextColumn::make('units_count')->counts('units')->label(__('Units'))->badge(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([

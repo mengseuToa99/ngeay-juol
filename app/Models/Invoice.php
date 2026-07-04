@@ -5,6 +5,7 @@ namespace App\Models;
 use App\Enums\InvoiceStatus;
 use App\Enums\PaymentMethod;
 use App\Models\Concerns\BelongsToLandlord;
+use App\Notifications\InvoiceGeneratedNotification;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -193,6 +194,10 @@ class Invoice extends Model
             if (empty($invoice->property_id) && $invoice->rental_id) {
                 $invoice->property_id = Rental::withoutGlobalScopes()->whereKey($invoice->rental_id)->value('property_id');
             }
+        });
+
+        static::created(function (Invoice $invoice) {
+            $invoice->tenant?->notify(new InvoiceGeneratedNotification($invoice));
         });
     }
 

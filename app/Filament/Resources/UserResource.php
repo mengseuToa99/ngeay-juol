@@ -3,6 +3,7 @@
 namespace App\Filament\Resources;
 
 use App\Enums\UserStatus;
+use App\Filament\Forms\LocationFields;
 use App\Filament\Resources\UserResource\Pages;
 use App\Models\User;
 use Filament\Forms;
@@ -58,7 +59,7 @@ class UserResource extends Resource
                     Forms\Components\TextInput::make('username')
                         ->unique(ignoreRecord: true)
                         ->maxLength(255)
-                        ->helperText('Login for room/tenant accounts (no email required).'),
+                        ->helperText(__('Login for room/tenant accounts (no email required).')),
                     Forms\Components\TextInput::make('phone_number')->tel(),
                     Forms\Components\TextInput::make('password')
                         ->password()
@@ -73,6 +74,63 @@ class UserResource extends Resource
                         ->required(),
                 ])->columns(2),
 
+            Forms\Components\Section::make(__('Personal info'))
+                ->schema([
+                    Forms\Components\Select::make('gender')
+                        ->options([
+                            'male' => __('Male'),
+                            'female' => __('Female'),
+                            'other' => __('Other'),
+                        ])
+                        ->placeholder(__('Select gender')),
+                    Forms\Components\DatePicker::make('dob')
+                        ->label(__('Date of birth'))
+                        ->maxDate(now()),
+                    Forms\Components\TextInput::make('nationality')
+                        ->placeholder(__('e.g. Khmer, Vietnamese')),
+                ])->columns(3),
+
+            Forms\Components\Section::make(__('Location'))
+                ->schema(LocationFields::make())
+                ->columns(2),
+
+            Forms\Components\Section::make(__('Tenant details'))
+                ->description(__('Extra info for tenants — occupation, emergency contacts, guarantor.'))
+                ->relationship('tenantProfile')
+                ->schema([
+                    Forms\Components\TextInput::make('id_card_number')->label(__('ID card number')),
+                    Forms\Components\TextInput::make('occupation'),
+                    Forms\Components\TextInput::make('workplace')
+                        ->placeholder(__('e.g. company name')),
+                    Forms\Components\TextInput::make('monthly_income')
+                        ->numeric()->prefix('$'),
+                    Forms\Components\DatePicker::make('move_in_date')
+                        ->label(__('Move-in date')),
+
+                    Forms\Components\Fieldset::make(__('Emergency contact'))
+                        ->schema([
+                            Forms\Components\TextInput::make('emergency_contact_name')->label(__('Name')),
+                            Forms\Components\TextInput::make('emergency_contact_phone')->label(__('Phone'))->tel(),
+                            Forms\Components\TextInput::make('emergency_contact_relationship')
+                                ->label(__('Relationship'))
+                                ->placeholder(__('e.g. mother, brother')),
+                        ])->columns(3),
+
+                    Forms\Components\Fieldset::make(__('Guarantor'))
+                        ->schema([
+                            Forms\Components\TextInput::make('guarantor_name')->label(__('Name')),
+                            Forms\Components\TextInput::make('guarantor_phone')->label(__('Phone'))->tel(),
+                            Forms\Components\TextInput::make('guarantor_id_number')->label(__('ID number')),
+                            Forms\Components\TextInput::make('guarantor_address')->label(__('Address')),
+                        ])->columns(2),
+
+                    Forms\Components\Textarea::make('notes')
+                        ->label(__('Notes'))
+                        ->placeholder(__('Private notes about this tenant'))
+                        ->columnSpanFull(),
+                ])->columns(2)
+                ->collapsed(),
+
             Forms\Components\Section::make(__('Access'))
                 ->schema([
                     Forms\Components\Select::make('roles')
@@ -81,10 +139,10 @@ class UserResource extends Resource
                         ->preload()
                         ->searchable(),
                     Forms\Components\Select::make('manages_landlord_id')
-                        ->label('Manages landlord')
+                        ->label(__('Manages landlord'))
                         ->relationship('managesLandlord', 'name')
                         ->searchable()
-                        ->helperText('For a landlord_manager: the landlord they act on behalf of.'),
+                        ->helperText(__('For a landlord_manager: the landlord they act on behalf of.')),
                 ])->columns(2),
         ]);
     }
@@ -96,7 +154,7 @@ class UserResource extends Resource
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('username')->searchable()->copyable()->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('email')->searchable()->copyable()->placeholder('—'),
-                Tables\Columns\TextColumn::make('roles.name')->badge()->label('Roles'),
+                Tables\Columns\TextColumn::make('roles.name')->badge()->label(__('Roles')),
                 Tables\Columns\TextColumn::make('status')->badge(),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])

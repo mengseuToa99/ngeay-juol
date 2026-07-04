@@ -21,24 +21,24 @@ class CreateSubscription extends CreateRecord
             Forms\Components\Section::make(__('Assign subscription'))
                 ->schema([
                     Forms\Components\Select::make('landlord_id')
-                        ->label('Landlord')
+                        ->label(__('Landlord'))
                         ->options(fn () => User::role('landlord')->pluck('name', 'id'))
                         ->searchable()
                         ->required(),
                     Forms\Components\Select::make('plan_id')
-                        ->label('Plan')
+                        ->label(__('Plan'))
                         ->options(fn () => SubscriptionPlan::where('is_active', true)->pluck('name', 'id'))
                         ->required()
                         ->live(),
                     Forms\Components\Toggle::make('with_trial')
-                        ->label('Start with trial period')
+                        ->label(__('Start with trial period'))
                         ->default(false)
                         ->live(),
                     Forms\Components\Toggle::make('auto_renew')
-                        ->label('Auto-renew')
+                        ->label(__('Auto-renew'))
                         ->default(true),
                     Forms\Components\Textarea::make('note')
-                        ->label('Note / reason for assignment')
+                        ->label(__('Note / reason for assignment'))
                         ->rows(2),
                 ])->columns(2),
         ]);

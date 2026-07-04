@@ -2,8 +2,8 @@
 
 namespace App\Services;
 
+use App\Contracts\Billing\PaymentGateway;
 use App\Enums\PaymentMethod;
-use App\Enums\PlanInterval;
 use App\Enums\SubscriptionAccess;
 use App\Enums\SubscriptionAction;
 use App\Enums\SubscriptionPaymentStatus;
@@ -15,9 +15,13 @@ use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\Unit;
 use App\Models\User;
+use App\Services\Billing\ManualGateway;
+use App\Services\Billing\UnsupportedGateway;
+use App\Support\Billing\GatewayChargeResult;
 use Carbon\Carbon;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class SubscriptionService
 {
@@ -36,7 +40,7 @@ class SubscriptionService
         $startsAt = $trialEndsAt ? $trialEndsAt->copy()->addDay() : $now;
         $endsAt = $interval->addInterval($startsAt->copy());
 
-        return DB::transaction(function () use ($landlord, $plan, $opts, $now, $startsAt, $endsAt, $trialEndsAt, $trialDays, $interval) {
+        return DB::transaction(function () use ($landlord, $plan, $opts, $startsAt, $endsAt, $trialEndsAt, $trialDays, $interval) {
             $sub = Subscription::create([
                 'landlord_id' => $landlord->id,
                 'plan_id' => $plan->id,
@@ -68,9 +72,10 @@ class SubscriptionService
     public static function renew(Subscription $sub, array $paymentData): SubscriptionPayment
     {
         $interval = $sub->interval;
-        $newEndsAt = $interval->addInterval($sub->ends_at ? $sub->ends_at->copy() : now()->startOfDay());
+        $periodStart = $sub->ends_at ? $sub->ends_at->copy() : now()->startOfDay();
+        $newEndsAt = $interval->addInterval($periodStart->copy());
 
-        return DB::transaction(function () use ($sub, $paymentData, $newEndsAt, $interval) {
+        return DB::transaction(function () use ($sub, $paymentData, $periodStart, $newEndsAt) {
             $payment = SubscriptionPayment::create([
                 'subscription_id' => $sub->id,
                 'landlord_id' => $sub->landlord_id,
@@ -80,7 +85,7 @@ class SubscriptionService
                 'method' => $paymentData['method'] ?? PaymentMethod::BankTransfer,
                 'status' => SubscriptionPaymentStatus::Succeeded,
                 'paid_at' => $paymentData['paid_at'] ?? now(),
-                'covers_from' => $sub->ends_at,
+                'covers_from' => $periodStart,
                 'covers_to' => $newEndsAt,
                 'gateway' => $paymentData['gateway'] ?? 'manual',
                 'gateway_transaction_id' => $paymentData['gateway_transaction_id'] ?? null,
@@ -101,13 +106,83 @@ class SubscriptionService
             ]);
 
             static::recordHistory($sub, SubscriptionAction::Renewed, [
-                'period_start' => $sub->ends_at,
+                'period_start' => $periodStart,
                 'period_end' => $newEndsAt,
                 'amount_charged' => $paymentData['amount'],
             ]);
 
             return $payment;
         });
+    }
+
+    /** @return array{renewed:int, skipped:int, failed:int, details:list<array<string, mixed>>} */
+    public static function autoRenewDue(?PaymentGateway $gateway = null): array
+    {
+        $today = Carbon::today();
+        $result = [
+            'renewed' => 0,
+            'skipped' => 0,
+            'failed' => 0,
+            'details' => [],
+        ];
+
+        Subscription::withoutGlobalScopes()
+            ->with(['payments' => fn ($query) => $query->latest('paid_at')->latest('id')])
+            ->where('auto_renew', true)
+            ->whereIn('status', [SubscriptionStatus::Active->value, SubscriptionStatus::Trial->value])
+            ->where('ends_at', '<=', $today)
+            ->chunkById(100, function ($subscriptions) use (&$result, $gateway) {
+                foreach ($subscriptions as $subscription) {
+                    $selectedGateway = $gateway ?? static::gatewayFor($subscription);
+
+                    if (! $selectedGateway->supportsAutoRenew($subscription)) {
+                        $result['skipped']++;
+                        $result['details'][] = [
+                            'subscription_id' => $subscription->id,
+                            'gateway' => $selectedGateway->key(),
+                            'status' => 'skipped',
+                            'reason' => 'Gateway does not support automatic renewal.',
+                        ];
+
+                        continue;
+                    }
+
+                    $charge = $selectedGateway->chargeSubscription($subscription);
+
+                    if (! $charge->succeeded) {
+                        static::recordFailedAutoRenewPayment($subscription, $selectedGateway, $charge);
+                        $result['failed']++;
+                        $result['details'][] = [
+                            'subscription_id' => $subscription->id,
+                            'gateway' => $selectedGateway->key(),
+                            'status' => 'failed',
+                            'reason' => $charge->failureReason,
+                        ];
+
+                        continue;
+                    }
+
+                    static::renew($subscription, [
+                        'amount' => $subscription->price,
+                        'currency' => $subscription->currency,
+                        'method' => PaymentMethod::Card,
+                        'gateway' => $selectedGateway->key(),
+                        'gateway_transaction_id' => $charge->transactionId,
+                        'gateway_ref' => $charge->reference,
+                        'note' => __('Automatic subscription renewal'),
+                        'recorded_by_id' => null,
+                    ]);
+
+                    $result['renewed']++;
+                    $result['details'][] = [
+                        'subscription_id' => $subscription->id,
+                        'gateway' => $selectedGateway->key(),
+                        'status' => 'renewed',
+                    ];
+                }
+            });
+
+        return $result;
     }
 
     public static function changePlan(Subscription $sub, SubscriptionPlan $newPlan, bool $immediate = false): void
@@ -336,7 +411,7 @@ class SubscriptionService
             ->count();
 
         if (($currentCount + $newCount) > $sub->max_units) {
-            throw \Illuminate\Validation\ValidationException::withMessages([
+            throw ValidationException::withMessages([
                 'subscription' => __('You have reached the maximum limit of :max units for your current subscription plan. Please upgrade your plan to add more rooms.', ['max' => $sub->max_units]),
             ]);
         }
@@ -350,7 +425,7 @@ class SubscriptionService
         Subscription::withoutGlobalScopes()
             ->whereIn('status', [SubscriptionStatus::Active->value, SubscriptionStatus::Trial->value])
             ->where('ends_at', '<', $today)
-            ->chunkById(100, function ($subs) use (&$count) {
+            ->chunkById(100, function ($subs) use (&$count, $today) {
                 foreach ($subs as $sub) {
                     $pastGrace = $sub->grace_ends_at && $sub->grace_ends_at < $today;
                     $noGrace = ! $sub->grace_ends_at;
@@ -402,6 +477,43 @@ class SubscriptionService
         ]));
     }
 
+    private static function gatewayFor(Subscription $subscription): PaymentGateway
+    {
+        $gatewayKey = (string) ($subscription->payments->first()?->gateway ?? 'manual');
+
+        return match ($gatewayKey) {
+            'manual', '' => new ManualGateway,
+            default => new UnsupportedGateway($gatewayKey),
+        };
+    }
+
+    private static function recordFailedAutoRenewPayment(
+        Subscription $subscription,
+        PaymentGateway $gateway,
+        GatewayChargeResult $charge,
+    ): SubscriptionPayment {
+        $periodStart = $subscription->ends_at ? $subscription->ends_at->copy() : now()->startOfDay();
+        $coversTo = $subscription->interval->addInterval($periodStart->copy());
+
+        return SubscriptionPayment::create([
+            'subscription_id' => $subscription->id,
+            'landlord_id' => $subscription->landlord_id,
+            'plan_id' => $subscription->plan_id,
+            'amount' => $subscription->price,
+            'currency' => $subscription->currency,
+            'method' => PaymentMethod::Card,
+            'status' => SubscriptionPaymentStatus::Failed,
+            'paid_at' => null,
+            'covers_from' => $periodStart,
+            'covers_to' => $coversTo,
+            'gateway' => $gateway->key(),
+            'gateway_transaction_id' => $charge->transactionId,
+            'gateway_ref' => $charge->reference,
+            'note' => $charge->failureReason,
+            'recorded_by_id' => null,
+        ]);
+    }
+
     private static function resolveGraceEndsAt(Carbon $endsAt, SubscriptionPlan $plan): Carbon
     {
         $graceDays = $plan->grace_days > 0
@@ -413,7 +525,7 @@ class SubscriptionService
 
     private static function nextReceiptNumber(): string
     {
-        return 'RCP-' . now()->format('Ymd') . '-' . str_pad(
+        return 'RCP-'.now()->format('Ymd').'-'.str_pad(
             (string) (SubscriptionPayment::withoutGlobalScopes()->whereDate('created_at', today())->count() + 1),
             4,
             '0',

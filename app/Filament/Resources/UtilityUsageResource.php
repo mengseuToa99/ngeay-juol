@@ -56,7 +56,7 @@ class UtilityUsageResource extends Resource
                 ->searchable()->preload()->required()
                 ->live(),
             Forms\Components\Select::make('property_utility_id')
-                ->label('Utility')
+                ->label(__('Utility'))
                 // scoped to the selected unit's property
                 ->options(function (Forms\Get $get) {
                     $unitId = $get('unit_id');
@@ -70,7 +70,7 @@ class UtilityUsageResource extends Resource
                 ->searchable()->required(),
             Forms\Components\Select::make('rental_id')
                 ->relationship('rental', 'id')
-                ->searchable()->label('Rental'),
+                ->searchable()->label(__('Rental')),
             Forms\Components\Hidden::make('recorded_by_id')->default(fn () => auth()->id()),
             Forms\Components\Select::make('reading_type')
                 ->options(ReadingType::class)
@@ -94,21 +94,21 @@ class UtilityUsageResource extends Resource
             ->defaultGroup('reading_date')
             ->columns([
                 Tables\Columns\TextColumn::make('propertyUtility.name')
-                    ->label('Utility')
+                    ->label(__('Utility'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('unit.room_number')
-                    ->label('Unit')
+                    ->label(__('Unit'))
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\ColumnGroup::make('Meter reading', [
-                    Tables\Columns\TextColumn::make('old_reading')->label('Previous')
+                Tables\Columns\ColumnGroup::make(__('Meter reading'), [
+                    Tables\Columns\TextColumn::make('old_reading')->label(__('Previous'))
                         ->alignEnd()->color('gray')
                         ->formatStateUsing(fn ($state, UtilityUsage $record) => static::reading($state, $record)),
-                    Tables\Columns\TextColumn::make('new_reading')->label('Current')
+                    Tables\Columns\TextColumn::make('new_reading')->label(__('Current'))
                         ->alignEnd()->color('gray')
                         ->formatStateUsing(fn ($state, UtilityUsage $record) => static::reading($state, $record)),
-                    Tables\Columns\TextColumn::make('amount_used')->label('Used')
+                    Tables\Columns\TextColumn::make('amount_used')->label(__('Used'))
                         ->alignEnd()->weight('bold')->sortable()
                         ->color(fn (UtilityUsage $record) => static::isSpike($record) ? 'danger' : null)
                         ->icon(fn (UtilityUsage $record) => static::isSpike($record) ? 'heroicon-m-exclamation-triangle' : null)
@@ -117,9 +117,9 @@ class UtilityUsageResource extends Resource
                         ->summarize(Sum::make()->label(__('Total'))
                             ->formatStateUsing(fn ($state) => static::fmt($state))),
                 ]),
-                Tables\Columns\ColumnGroup::make('Billing', [
+                Tables\Columns\ColumnGroup::make(__('Billing'), [
                     Tables\Columns\TextColumn::make('amount_billed')
-                        ->label('Amount')
+                        ->label(__('Amount'))
                         ->alignEnd()
                         ->money('USD')
                         ->state(fn (UtilityUsage $record) => $record->propertyUtility?->rate
@@ -127,14 +127,14 @@ class UtilityUsageResource extends Resource
                             : null)
                         ->placeholder('—'),
                     Tables\Columns\IconColumn::make('is_waived')
-                        ->label('Waived')
+                        ->label(__('Waived'))
                         ->boolean(),
                 ]),
             ])
             ->filters([
-                Tables\Filters\SelectFilter::make('property_utility_id')->label('Utility')
+                Tables\Filters\SelectFilter::make('property_utility_id')->label(__('Utility'))
                     ->relationship('propertyUtility', 'name')->searchable()->preload(),
-                Tables\Filters\SelectFilter::make('unit_id')->label('Unit')
+                Tables\Filters\SelectFilter::make('unit_id')->label(__('Unit'))
                     ->relationship('unit', 'room_number')->searchable()->preload(),
                 Tables\Filters\SelectFilter::make('reading_type')->options(ReadingType::class),
                 Tables\Filters\TernaryFilter::make('is_waived'),

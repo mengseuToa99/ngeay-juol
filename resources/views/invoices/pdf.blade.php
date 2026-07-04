@@ -11,6 +11,7 @@
 @php
     /** @var \App\Models\Invoice $invoice */
     use App\Models\Invoice;
+    use App\Support\BrandLogo;
 
     $money = fn ($v) => '$' . number_format((float) $v, 2);
     // ASCII separator/placeholder: the bundled Khmer font has no en/em dash glyph.
@@ -22,11 +23,8 @@
     $business = $property?->name ?? config('app.name');
     $address = $property?->formatted_address;
 
-    $initials = collect(preg_split('/\s+/', trim((string) $business)))
-        ->filter()
-        ->take(2)
-        ->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))
-        ->implode('') ?: 'R';
+    $logoDataUri = BrandLogo::dataUri();
+    $initials = BrandLogo::fallbackInitials((string) $business);
 
     // Tenant / room display, falling back across the relation chain.
     $tenantName = $invoice->tenant?->name ?? $invoice->rental?->occupant_name ?? '—';
@@ -96,9 +94,15 @@
         @if ($thermal)
             /* ---------- Thermal receipt (narrow single column) ---------- */
             .wrap { padding: 6px 6px 10px 6px; }
+            .brand { text-align: center; }
+            .brand-table { margin: 0 auto; }
+            .brand-table td { vertical-align: middle; }
+            .brand-logo { width: 26px; height: 26px; border-radius: 6px; overflow: hidden; background: #fff; border: 1px solid #d1d5db; }
+            .brand-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+            .brand-logo span { display: block; line-height: 26px; text-align: center; color: #059669; font-size: 11px; font-weight: bold; }
             .biz { font-size: 13px; font-weight: bold; text-align: center; color: #059669; }
             .biz-addr { font-size: 8px; text-align: center; color: #4b5563; margin-top: 2px; }
-            .doc-title { font-size: 11px; font-weight: bold; text-align: center; margin-top: 4px; letter-spacing: 1px; }
+            .doc-title { font-size: 11px; font-weight: bold; text-align: center; margin-top: 4px; letter-spacing: 0; }
             .doc-no { font-size: 10px; text-align: center; margin-top: 1px; color: #059669; }
             .rule { border-top: 1px dashed #9ca3af; margin: 6px 0; }
             .meta td { padding: 1px 0; font-size: 9px; vertical-align: top; }
@@ -117,10 +121,12 @@
             .waived { color: #6b7280; font-size: 8px; }
         @else
             /* ---------- Standard A4 / A5 invoice ---------- */
-            .logo { width: 34px; height: 34px; background: #059669; color: #ffffff; text-align: center; line-height: 34px; font-size: 15px; font-weight: bold; border-radius: 8px; }
-            .biz { font-size: 18px; font-weight: bold; color: #0f172a; letter-spacing: -0.2px; }
+            .logo { width: 34px; height: 34px; background: #ffffff; text-align: center; border-radius: 8px; overflow: hidden; border: 1px solid #e2e8f0; }
+            .logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+            .logo span { display: block; line-height: 34px; font-size: 15px; font-weight: bold; color: #059669; }
+            .biz { font-size: 18px; font-weight: bold; color: #0f172a; letter-spacing: 0; }
             .biz-addr { font-size: 10px; color: #64748b; margin-top: 3px; max-width: 260px; line-height: 1.4; }
-            .doc-label { font-size: 13px; font-weight: bold; color: #94a3b8; letter-spacing: 3px; text-transform: uppercase; }
+            .doc-label { font-size: 13px; font-weight: bold; color: #94a3b8; letter-spacing: 0; text-transform: uppercase; }
             .doc-no { font-size: 15px; font-weight: bold; color: #0f172a; margin-top: 2px; }
             .status {
                 display: inline-block;
@@ -130,11 +136,11 @@
                 font-size: 9px;
                 font-weight: bold;
                 text-transform: uppercase;
-                letter-spacing: 0.5px;
+                letter-spacing: 0;
             }
             .head-rule { border-bottom: 1px solid #e2e8f0; }
 
-            .section-title { font-size: 9px; font-weight: bold; color: #059669; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 5px; }
+            .section-title { font-size: 9px; font-weight: bold; color: #059669; text-transform: uppercase; letter-spacing: 0; margin-bottom: 5px; }
             .billto { font-size: 14px; font-weight: bold; color: #0f172a; }
             .billto-sub { font-size: 11px; color: #475569; margin-top: 3px; }
             .room-tag { display: inline-block; margin-top: 4px; padding: 1px 8px; background: #ecfdf5; color: #047857; border-radius: 5px; font-size: 10px; font-weight: bold; }
@@ -147,7 +153,7 @@
             .items-tbl { margin-top: 24px; }
             .items-tbl thead th {
                 color: #64748b; font-size: 9px; font-weight: bold;
-                text-transform: uppercase; letter-spacing: 0.5px; padding: 0 10px 7px; text-align: left;
+                text-transform: uppercase; letter-spacing: 0; padding: 0 10px 7px; text-align: left;
                 border-bottom: 2px solid #059669;
             }
             .items-tbl thead th.num { text-align: right; }
@@ -175,7 +181,7 @@
             .pay-tbl { margin-top: 26px; }
             .pay-tbl thead th {
                 color: #64748b; font-size: 9px; font-weight: bold;
-                text-transform: uppercase; letter-spacing: 0.5px; padding: 0 10px 6px; text-align: left;
+                text-transform: uppercase; letter-spacing: 0; padding: 0 10px 6px; text-align: left;
                 border-bottom: 1px solid #e2e8f0;
             }
             .pay-tbl thead th.num { text-align: right; }
@@ -193,7 +199,24 @@
 @if ($thermal)
     {{-- ========================= THERMAL RECEIPT ========================= --}}
     <div class="wrap">
-        <div class="biz">{{ $business }}</div>
+        <div class="brand">
+            <table class="brand-table">
+                <tr>
+                    <td>
+                        <div class="brand-logo">
+                            @if ($logoDataUri)
+                                <img src="{{ $logoDataUri }}" alt="{{ $business }}">
+                            @else
+                                <span>{{ $initials }}</span>
+                            @endif
+                        </div>
+                    </td>
+                    <td>
+                        <div class="biz">{{ $business }}</div>
+                    </td>
+                </tr>
+            </table>
+        </div>
         @if ($address)
             <div class="biz-addr">{{ $address }}</div>
         @endif

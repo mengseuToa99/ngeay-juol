@@ -44,6 +44,13 @@ class User extends Authenticatable implements FilamentUser, HasMedia, HasName
         'username',
         'phone_number',
         'password',
+        'gender',
+        'dob',
+        'nationality',
+        'province',
+        'district',
+        'commune',
+        'village',
     ];
 
     /** @var list<string> */
@@ -62,6 +69,7 @@ class User extends Authenticatable implements FilamentUser, HasMedia, HasName
             'two_factor_confirmed_at' => 'datetime',
             'password' => 'hashed',
             'status' => UserStatus::class,
+            'dob' => 'date',
         ];
     }
 

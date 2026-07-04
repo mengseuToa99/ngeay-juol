@@ -35,4 +35,20 @@ return [
         ],
     ],
 
+    'browsershot' => [
+        'chrome_path' => env('BROWSERSHOT_CHROME_PATH', '/usr/bin/google-chrome'),
+        'node_binary' => env('BROWSERSHOT_NODE_BINARY'),
+        'npm_binary' => env('BROWSERSHOT_NPM_BINARY'),
+        'node_module_path' => env('BROWSERSHOT_NODE_MODULE_PATH', base_path('node_modules')),
+        'include_path' => env('BROWSERSHOT_INCLUDE_PATH', '$PATH:/usr/local/bin:/opt/homebrew/bin:/usr/bin:/bin'),
+        'chromium_arguments' => [
+            'disable-crash-reporter',
+            'disable-crashpad',
+            'disable-dev-shm-usage',
+            'disable-gpu',
+            'no-zygote',
+            'allow-file-access-from-files',
+        ],
+    ],
+
 ];

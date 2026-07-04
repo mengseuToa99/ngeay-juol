@@ -63,7 +63,7 @@ class MonthlyBilling extends Page implements HasForms
         // Only count properties that have actually enabled the feature.
         $count = Rental::where('status', RentalStatus::Active->value)
             ->where('landlord_id', $landlordId)
-            ->whereHas('unit.property.setting', fn ($q) => $q->where('monthly_billing_enabled', true))
+            ->whereHas('unit.property.settings', fn ($q) => $q->where('monthly_billing_enabled', true))
             ->where(function ($q) {
                 $q->whereNull('next_invoice_date')
                   ->orWhereDate('next_invoice_date', '<=', now()->toDateString());
@@ -371,7 +371,7 @@ class MonthlyBilling extends Page implements HasForms
                 'is_first_invoice' => $isFirstInvoice,
                 'label'            => ($rental->unit?->room_number ?? 'Room')
                     . ' — '
-                    . ($rental->occupant_name ?: ($rental->tenant?->name ?? 'tenant'))
+                    . ($rental->occupant_name ?: ($rental->tenant?->name ?? __('tenant')))
                     . ($isFirstInvoice ? ' [First invoice' . $depositHint . ']' : ''),
                 'rent'             => (string) $rentAmount,
                 'readings'         => $readings,
@@ -431,7 +431,7 @@ class MonthlyBilling extends Page implements HasForms
                     $dueDate->addMonth();
                 }
             } else {
-                $dueDate = $periodEnd->copy()->addDays(7);
+                $dueDate = null;
             }
 
             $usages = [];
@@ -458,16 +458,21 @@ class MonthlyBilling extends Page implements HasForms
 
             $rental->monthly_rent = (float) ($row['rent'] ?? $rental->monthly_rent);
 
-            $builder->create([
+            $builderParams = [
                 'rental'           => $rental,
                 'period_start'     => $periodStart,
                 'period_end'       => $periodEnd,
                 'issue_date'       => $issueDate,
-                'due_date'         => $dueDate,
                 'include_rent'     => $includeRent,
                 'is_first_invoice' => (bool) ($row['is_first_invoice'] ?? false),
                 'usages'           => $usages,
-            ]);
+            ];
+
+            if ($dueDate) {
+                $builderParams['due_date'] = $dueDate;
+            }
+
+            $builder->create($builderParams);
 
             // Roll next_invoice_date forward so the next run pre-fills the right date.
             $rental->withoutEvents(fn () => $rental->update([

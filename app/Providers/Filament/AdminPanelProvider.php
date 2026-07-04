@@ -2,6 +2,7 @@
 
 namespace App\Providers\Filament;
 
+use App\Filament\Pages\AdminSettings;
 use App\Filament\Resources\LandlordResource;
 use App\Filament\Resources\SubscriptionPaymentResource;
 use App\Filament\Resources\SubscriptionPlanResource;
@@ -43,11 +44,13 @@ class AdminPanelProvider extends PanelProvider
             ->default()
             ->id('admin')
             ->path('admin')
-            ->login(\App\Filament\Pages\Auth\Login::class)
-            ->brandName('RentWise Staff')
+            ->brandName(__('ngeay juol Staff'))
+            ->brandLogo(asset('Khmer%20House%20Key.svg'))
+            ->brandLogoHeight('2.25rem')
             ->font('Plus Jakarta Sans')
             ->sidebarCollapsibleOnDesktop()
             ->sidebarWidth('17rem')
+            ->databaseNotifications()
             ->colors([
                 'primary' => Color::Emerald,
                 'gray' => Color::Slate,
@@ -55,6 +58,10 @@ class AdminPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => '<link rel="stylesheet" href="'.asset('css/rentwise-admin.css').'?v='.@filemtime(public_path('css/rentwise-admin.css')).'">',
+            )
+            ->renderHook(
+                PanelsRenderHook::USER_MENU_BEFORE,
+                fn (): string => view('filament.components.language-switcher'),
             )
             ->navigationGroups([
                 'Billing' => NavigationGroup::make()->label(fn () => __('Billing')),
@@ -83,6 +90,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->pages([
                 Dashboard::class,
+                AdminSettings::class,
             ])
             ->widgets([
                 AccountWidget::class,

@@ -53,7 +53,7 @@ class InvoiceResource extends Resource
                                 ? $query->where('property_id', ActiveProperty::id())
                                 : $query,
                         )
-                        ->getOptionLabelFromRecordUsing(fn ($record) => "#{$record->id} · ".($record->tenant?->name ?? 'tenant').' · '.($record->unit?->room_number ?? ''))
+                        ->getOptionLabelFromRecordUsing(fn ($record) => "#{$record->id} · ".($record->tenant?->name ?? __('tenant')).' · '.($record->unit?->room_number ?? ''))
                         ->searchable()
                         ->preload()
                         ->required()
@@ -71,11 +71,11 @@ class InvoiceResource extends Resource
                         ->default(fn () => now()->endOfMonth()->addDays(7)),
                     Forms\Components\TextInput::make('amount_due')
                         ->numeric()->prefix('$')
-                        ->helperText('Computed from line items.')
+                        ->helperText(__('Computed from line items.'))
                         ->disabled()->dehydrated(false),
                     Forms\Components\TextInput::make('amount_paid')
                         ->numeric()->prefix('$')
-                        ->helperText('Computed from the payments ledger.')
+                        ->helperText(__('Computed from the payments ledger.'))
                         ->disabled()->dehydrated(false),
                     Forms\Components\Textarea::make('notes')->columnSpanFull(),
                 ])->columns(2),
@@ -86,6 +86,9 @@ class InvoiceResource extends Resource
     {
         return $table
             ->columns([
+                Tables\Columns\TextColumn::make('row_number')
+                    ->label('#')
+                    ->rowIndex(),
                 Tables\Columns\TextColumn::make('invoice_number')
                     ->searchable()->sortable()
                     ->action(
@@ -102,7 +105,7 @@ class InvoiceResource extends Resource
                                 return view('components.invoice-slip-modal', ['invoice' => $record]);
                             })
                     ),
-                Tables\Columns\TextColumn::make('tenant.name')->label('Tenant')->searchable(),
+                Tables\Columns\TextColumn::make('tenant.name')->label(__('Tenant'))->searchable(),
                 Tables\Columns\TextColumn::make('amount_due')->money('USD')->sortable(),
                 Tables\Columns\TextColumn::make('amount_paid')->money('USD'),
                 Tables\Columns\TextColumn::make('balance')->money('USD')->state(fn (Invoice $r) => $r->balance),
@@ -116,6 +119,79 @@ class InvoiceResource extends Resource
                 Tables\Columns\TextColumn::make('due_date')->date()->sortable(),
             ])
             ->filters([
+                Tables\Filters\Filter::make('due_date')
+                    ->form([
+                        Forms\Components\Select::make('period')
+                            ->label(__('Period'))
+                            ->options([
+                                'this_month' => __('This month'),
+                                'last_month' => __('Last month'),
+                                'last_2_months' => __('Last 2 months'),
+                                'last_3_months' => __('Last 3 months'),
+                                'last_6_months' => __('Last 6 months'),
+                                'this_year' => __('This year'),
+                                'custom' => __('Custom'),
+                            ])
+                            ->placeholder(__('All time'))
+                            ->live(),
+
+                        Forms\Components\DatePicker::make('from')
+                            ->label(__('From'))
+                            ->visible(fn (Forms\Get $get) => $get('period') === 'custom'),
+
+                        Forms\Components\DatePicker::make('until')
+                            ->label(__('Until'))
+                            ->visible(fn (Forms\Get $get) => $get('period') === 'custom'),
+                    ])
+                    ->query(function ($query, array $data) {
+                        $period = $data['period'] ?? null;
+                        if (! $period) {
+                            return $query;
+                        }
+
+                        if ($period === 'custom') {
+                            return $query
+                                ->when($data['from'] ?? null, fn ($q, $d) => $q->whereDate('due_date', '>=', $d))
+                                ->when($data['until'] ?? null, fn ($q, $d) => $q->whereDate('due_date', '<=', $d));
+                        }
+
+                        $now = now();
+                        [$from, $until] = match ($period) {
+                            'this_month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+                            'last_month' => [$now->copy()->subMonth()->startOfMonth(), $now->copy()->subMonth()->endOfMonth()],
+                            'last_2_months' => [$now->copy()->subMonths(2)->startOfMonth(), $now->copy()->endOfMonth()],
+                            'last_3_months' => [$now->copy()->subMonths(3)->startOfMonth(), $now->copy()->endOfMonth()],
+                            'last_6_months' => [$now->copy()->subMonths(6)->startOfMonth(), $now->copy()->endOfMonth()],
+                            'this_year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+                            default => [null, null],
+                        };
+
+                        return $query
+                            ->when($from, fn ($q, $d) => $q->whereDate('due_date', '>=', $d))
+                            ->when($until, fn ($q, $d) => $q->whereDate('due_date', '<=', $d));
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $period = $data['period'] ?? null;
+                        if (! $period) {
+                            return [];
+                        }
+
+                        $label = match ($period) {
+                            'this_month' => __('This month'),
+                            'last_month' => __('Last month'),
+                            'last_2_months' => __('Last 2 months'),
+                            'last_3_months' => __('Last 3 months'),
+                            'last_6_months' => __('Last 6 months'),
+                            'this_year' => __('This year'),
+                            'custom' => collect([
+                                ($data['from'] ?? null) ? __('From').' '.\Carbon\Carbon::parse($data['from'])->toFormattedDateString() : null,
+                                ($data['until'] ?? null) ? __('Until').' '.\Carbon\Carbon::parse($data['until'])->toFormattedDateString() : null,
+                            ])->filter()->implode(' — ') ?: __('Custom'),
+                            default => null,
+                        };
+
+                        return $label ? [Tables\Filters\Indicator::make($label)->removeField('period')] : [];
+                    }),
                 Tables\Filters\SelectFilter::make('payment_status')->options(InvoiceStatus::class),
                 Tables\Filters\TrashedFilter::make(),
             ])

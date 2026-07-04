@@ -234,10 +234,14 @@ Registered in `routes/console.php`. Run daily at 00:30:
 
 | Command | What it does |
 |---|---|
-| `subscriptions:expiry-sweep` | Marks past-due → expired after grace. Revokes after retention. |
-| `subscriptions:auto-renew` | Attempts gateway payment for `auto_renew=true` subs hitting `ends_at`. |
-| `subscriptions:recompute-units` | Caches `current_unit_count` for all active subs. |
-| `subscriptions:dunning` | Sends reminder emails at -7/-3/-1/0 days. |
+| `subscriptions:process --renew` | Attempts automatic renewal for due `auto_renew=true` subscriptions. Currently only the gateway abstraction is wired; manual and unknown gateways are skipped with an explicit reason. |
+| `subscriptions:process --sweep` | Marks active/trial subscriptions as cancelled after `ends_at` and grace have both passed. |
+| `subscriptions:process --recompute` | Caches `current_unit_count` for all active/trial subscriptions. |
+| `subscriptions:process --dunning` | Sends database reminders for expiring soon, past due, and grace ending soon stages. Mail is only added when the app mailer is safely configured. |
+
+Dunning idempotency is enforced through existing database notifications with `(notifiable, notification type, subscription_id, reminder_stage)`. Running the job repeatedly will not create another reminder for the same subscription and stage.
+
+Auto-renewal goes through `App\Contracts\Billing\PaymentGateway`. `ManualGateway` intentionally does not auto-charge because offline payments must still be recorded by an administrator. Future real gateways can implement `supportsAutoRenew()` and `chargeSubscription()`; successful charges call `SubscriptionService::renew()`, while failed charges create a failed `subscription_payments` row without changing subscription status or period dates.
 
 ---
 
@@ -308,7 +312,7 @@ Compact stat card showing subscription status + days to expiry. Visible on the l
 2. **Plan versioning via snapshot** — `subscriptions` carries frozen plan terms. Editing a plan never touches active subs.
 3. **Append-only history ledger** — `subscription_histories` is the single source of truth for revenue recognition + disputes.
 4. **Intent vs. effective** — stored `status` says what we *intend*; computed `effectiveAccess()` says what we *enforce*. No cron-fighting-date bugs.
-5. **Gateway abstraction** — `interface PaymentGateway` with `ManualGateway` (admin records offline) and `StripeGateway` (future). Webhooks verified + idempotent.
+5. **Gateway abstraction** — `PaymentGateway` with `ManualGateway` (admin records offline) and `UnsupportedGateway` placeholders. Real gateways should add webhook verification and transaction idempotency.
 6. **One enforcement primitive** — `SubscriptionService::effectiveAccess()` cached per-request. No sprawl.
 7. **Feature gates via Gate** — adding a feature = 1 Gate definition, not a migration.
 8. **Configurable settings via `Setting` model** — grace_days, retention_days, platform currency. No magic numbers.

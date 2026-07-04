@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\PaymentMethod;
+use App\Notifications\PaymentRecordedNotification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -35,6 +36,11 @@ class Payment extends Model
      */
     protected static function booted(): void
     {
+        static::created(function (Payment $payment) {
+            $payment->loadMissing('invoice.tenant');
+            $payment->invoice?->tenant?->notify(new PaymentRecordedNotification($payment));
+        });
+
         static::saved(fn (Payment $payment) => $payment->invoice?->recalculateFromLedger());
         static::deleted(fn (Payment $payment) => $payment->invoice?->recalculateFromLedger());
     }

@@ -6,6 +6,8 @@ use App\Models\PropertyUtility;
 use App\Models\Unit;
 use App\Models\UtilityUsage;
 use App\Support\ActiveProperty;
+use Barryvdh\DomPDF\Facade\Pdf;
+use Filament\Actions\Action;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -45,6 +47,142 @@ class ConsumptionHistory extends Page implements HasForms
     public function getTitle(): string
     {
         return __('Consumption history');
+    }
+
+    protected function getHeaderActions(): array
+    {
+        return [
+            Action::make('exportExcel')
+                ->label(__('Export Excel'))
+                ->icon('heroicon-o-table-cells')
+                ->color('success')
+                ->form([
+                    Forms\Components\DatePicker::make('date_from')
+                        ->label(__('Date From'))
+                        ->default(now()->startOfMonth()->toDateString())
+                        ->required(),
+                    Forms\Components\DatePicker::make('date_until')
+                        ->label(__('Date Until'))
+                        ->default(now()->endOfMonth()->toDateString())
+                        ->required(),
+                    Forms\Components\Select::make('property_utility_id')
+                        ->label(__('Utility'))
+                        ->options(fn () => PropertyUtility::query()
+                            ->when(ActiveProperty::id(), fn ($q, $pid) => $q->where('property_id', $pid))
+                            ->pluck('name', 'id')
+                        )
+                        ->placeholder(__('All Utilities'))
+                        ->searchable(),
+                ])
+                ->action(function (array $data) {
+                    $dateFrom = $data['date_from'];
+                    $dateUntil = $data['date_until'];
+                    $propertyUtilityId = $data['property_utility_id'] ?? null;
+                    $propertyId = ActiveProperty::id();
+
+                    $records = UtilityUsage::query()
+                        ->with(['unit', 'propertyUtility'])
+                        ->when($propertyId, fn ($q) => $q->whereHas('unit', fn ($qu) => $qu->where('property_id', $propertyId)))
+                        ->whereDate('reading_date', '>=', $dateFrom)
+                        ->whereDate('reading_date', '<=', $dateUntil)
+                        ->when($propertyUtilityId, fn ($q) => $q->where('property_utility_id', $propertyUtilityId))
+                        ->orderBy('reading_date')
+                        ->get();
+
+                    return response()->streamDownload(function () use ($records) {
+                        $output = fopen('php://output', 'w');
+                        fprintf($output, chr(0xEF).chr(0xBB).chr(0xBF)); // UTF-8 BOM
+
+                        fputcsv($output, [
+                            __('Room'),
+                            __('Utility'),
+                            __('Date'),
+                            __('Previous'),
+                            __('Current'),
+                            __('Used'),
+                            __('Cost'),
+                        ]);
+
+                        foreach ($records as $record) {
+                            $uom = $record->propertyUtility?->unit_of_measure;
+                            $consumption = $record->amount_used;
+                            if ($uom) {
+                                $consumption .= ' '.$uom;
+                            }
+
+                            $cost = $record->propertyUtility?->rate
+                                ? round((float) $record->amount_used * (float) $record->propertyUtility->rate, 2)
+                                : 0.0;
+
+                            fputcsv($output, [
+                                $record->unit?->room_number ?? '—',
+                                $record->propertyUtility?->name ?? '—',
+                                $record->reading_date?->format('Y-m-d') ?? '—',
+                                $record->old_reading ?? '—',
+                                $record->new_reading ?? '—',
+                                $consumption,
+                                '$'.number_format($cost, 2),
+                            ]);
+                        }
+
+                        fclose($output);
+                    }, 'utility_report_'.now()->format('Y-m-d').'.csv');
+                }),
+
+            Action::make('exportPdf')
+                ->label(__('Export PDF'))
+                ->icon('heroicon-o-document')
+                ->color('danger')
+                ->form([
+                    Forms\Components\DatePicker::make('date_from')
+                        ->label(__('Date From'))
+                        ->default(now()->startOfMonth()->toDateString())
+                        ->required(),
+                    Forms\Components\DatePicker::make('date_until')
+                        ->label(__('Date Until'))
+                        ->default(now()->endOfMonth()->toDateString())
+                        ->required(),
+                    Forms\Components\Select::make('property_utility_id')
+                        ->label(__('Utility'))
+                        ->options(fn () => PropertyUtility::query()
+                            ->when(ActiveProperty::id(), fn ($q, $pid) => $q->where('property_id', $pid))
+                            ->pluck('name', 'id')
+                        )
+                        ->placeholder(__('All Utilities'))
+                        ->searchable(),
+                ])
+                ->action(function (array $data) {
+                    $dateFrom = $data['date_from'];
+                    $dateUntil = $data['date_until'];
+                    $propertyUtilityId = $data['property_utility_id'] ?? null;
+                    $propertyId = ActiveProperty::id();
+
+                    $records = UtilityUsage::query()
+                        ->with(['unit', 'propertyUtility'])
+                        ->when($propertyId, fn ($q) => $q->whereHas('unit', fn ($qu) => $qu->where('property_id', $propertyId)))
+                        ->whereDate('reading_date', '>=', $dateFrom)
+                        ->whereDate('reading_date', '<=', $dateUntil)
+                        ->when($propertyUtilityId, fn ($q) => $q->where('property_utility_id', $propertyUtilityId))
+                        ->orderBy('reading_date')
+                        ->get();
+
+                    $propertyName = ActiveProperty::name() ?? __('All properties');
+
+                    $pdf = Pdf::loadView('reports.utilities-pdf', [
+                        'records' => $records,
+                        'dateFrom' => $dateFrom,
+                        'dateUntil' => $dateUntil,
+                        'propertyName' => $propertyName,
+                    ]);
+
+                    $pdf->setPaper('a4', 'portrait');
+
+                    return response()->streamDownload(
+                        fn () => print ($pdf->output()),
+                        'utility_report_'.now()->format('Y-m-d').'.pdf'
+                    );
+                }),
+        ];
     }
 
     /** Same permission as the readings list — whoever can see usages can review history. */

@@ -21,21 +21,21 @@ class WaiversRelationManager extends RelationManager
         return $form->schema([
             Forms\Components\Hidden::make('created_by_id')->default(fn () => auth()->id()),
             Forms\Components\Select::make('property_utility_id')
-                ->label('Utility')
+                ->label(__('Utility'))
                 ->options(fn () => $this->getOwnerRecord()->propertyUtilities()->pluck('name', 'id'))
                 ->searchable()->required(),
             Forms\Components\Toggle::make('waived')->default(true)
-                ->helperText('On = this utility is not charged for the scope below.'),
+                ->helperText(__('On = this utility is not charged for the scope below.')),
             Forms\Components\Select::make('unit_id')
-                ->label('Limit to unit (optional)')
+                ->label(__('Limit to unit (optional)'))
                 ->options(fn () => $this->getOwnerRecord()->units()->pluck('room_number', 'id'))
-                ->searchable()->placeholder('Whole property'),
+                ->searchable()->placeholder(__('Whole property')),
             Forms\Components\Select::make('rental_id')
-                ->label('Limit to rental (optional)')
+                ->label(__('Limit to rental (optional)'))
                 ->options(fn () => Rental::whereHas('unit', fn ($q) => $q->where('property_id', $this->getOwnerRecord()->id))
                     ->with('unit')->get()
                     ->mapWithKeys(fn ($r) => [$r->id => '#'.$r->id.' · '.($r->unit?->room_number ?? '')]))
-                ->searchable()->placeholder('Whole property'),
+                ->searchable()->placeholder(__('Whole property')),
         ])->columns(2);
     }
 
@@ -43,9 +43,9 @@ class WaiversRelationManager extends RelationManager
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('propertyUtility.name')->label('Utility'),
-                Tables\Columns\TextColumn::make('unit.room_number')->label('Unit')->placeholder('Whole property'),
-                Tables\Columns\TextColumn::make('rental.id')->label('Rental')->placeholder('—'),
+                Tables\Columns\TextColumn::make('propertyUtility.name')->label(__('Utility')),
+                Tables\Columns\TextColumn::make('unit.room_number')->label(__('Unit'))->placeholder(__('Whole property')),
+                Tables\Columns\TextColumn::make('rental.id')->label(__('Rental'))->placeholder('—'),
                 Tables\Columns\IconColumn::make('waived')->boolean(),
             ])
             ->headerActions([

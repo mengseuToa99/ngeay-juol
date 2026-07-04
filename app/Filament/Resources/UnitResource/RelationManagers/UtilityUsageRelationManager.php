@@ -27,30 +27,30 @@ class UtilityUsageRelationManager extends RelationManager
             ->defaultGroup('reading_date')
             ->columns([
                 Tables\Columns\TextColumn::make('propertyUtility.name')
-                    ->label('Utility')
+                    ->label(__('Utility'))
                     ->searchable()
                     ->sortable(),
-                Tables\Columns\ColumnGroup::make('Meter reading', [
+                Tables\Columns\ColumnGroup::make(__('Meter reading'), [
                     Tables\Columns\TextColumn::make('old_reading')
-                        ->label('Previous')
+                        ->label(__('Previous'))
                         ->alignEnd()
                         ->color('gray')
                         ->formatStateUsing(fn ($state, UtilityUsage $record) => static::reading($state, $record)),
                     Tables\Columns\TextColumn::make('new_reading')
-                        ->label('Current')
+                        ->label(__('Current'))
                         ->alignEnd()
                         ->color('gray')
                         ->formatStateUsing(fn ($state, UtilityUsage $record) => static::reading($state, $record)),
                     Tables\Columns\TextColumn::make('amount_used')
-                        ->label('Used')
+                        ->label(__('Used'))
                         ->alignEnd()
                         ->weight('bold')
                         ->sortable()
                         ->formatStateUsing(fn ($state, UtilityUsage $record) => static::reading($state, $record)),
                 ]),
-                Tables\Columns\ColumnGroup::make('Billing', [
+                Tables\Columns\ColumnGroup::make(__('Billing'), [
                     Tables\Columns\TextColumn::make('amount_billed')
-                        ->label('Amount')
+                        ->label(__('Amount'))
                         ->alignEnd()
                         ->money('USD')
                         ->state(fn (UtilityUsage $record) => $record->propertyUtility?->rate
@@ -59,13 +59,13 @@ class UtilityUsageRelationManager extends RelationManager
                         ->placeholder('—'),
 
                     Tables\Columns\IconColumn::make('is_waived')
-                        ->label('Waived')
+                        ->label(__('Waived'))
                         ->boolean(),
                 ]),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('property_utility_id')
-                    ->label('Utility')
+                    ->label(__('Utility'))
                     ->relationship('propertyUtility', 'name')
                     ->searchable()
                     ->preload(),

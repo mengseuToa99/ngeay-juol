@@ -31,10 +31,13 @@ class InvoiceDocumentController extends Controller
 
         $mode = $request->query('mode') === 'stream' ? 'stream' : 'download';
 
-        $pdf = app(InvoicePdfService::class)->make($invoice, $size);
+        $pdfContent = app(InvoicePdfService::class)->make($invoice, $size);
         $name = InvoicePdfService::filename($invoice, 'pdf');
 
-        return $mode === 'stream' ? $pdf->stream($name) : $pdf->download($name);
+        return response($pdfContent, 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => ($mode === 'stream' ? 'inline' : 'attachment') . '; filename="' . $name . '"',
+        ]);
     }
 
     /**

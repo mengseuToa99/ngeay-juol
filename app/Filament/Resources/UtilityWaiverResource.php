@@ -33,7 +33,7 @@ class UtilityWaiverResource extends Resource
 
     protected static function propertyContextFallbackGroup(): ?string
     {
-        return 'Utilities';
+        return __('Utilities');
     }
 
     public static function getNavigationLabel(): string
@@ -66,29 +66,30 @@ class UtilityWaiverResource extends Resource
                 ->required(fn () => ActiveProperty::id() === null),
 
             Forms\Components\Select::make('property_utility_id')
-                ->label('Utility')
+                ->label(__('Utility'))
                 ->options(fn (Forms\Get $get) => PropertyUtility::query()
                     ->when(static::scopedPropertyId($get), fn ($q, $pid) => $q->where('property_id', $pid))
                     ->pluck('name', 'id'))
                 ->searchable()->required(),
 
             Forms\Components\Toggle::make('waived')->default(true)
-                ->helperText('On = this utility is not charged for the scope below.'),
+                ->label(__('Waived'))
+                ->helperText(__('On = this utility is not charged for the scope below.')),
 
             Forms\Components\Select::make('unit_id')
-                ->label('Limit to unit (optional)')
+                ->label(__('Limit to unit (optional)'))
                 ->options(fn (Forms\Get $get) => Unit::query()
                     ->when(static::scopedPropertyId($get), fn ($q, $pid) => $q->where('property_id', $pid))
                     ->pluck('room_number', 'id'))
-                ->searchable()->placeholder('Whole property'),
+                ->searchable()->placeholder(__('Whole property')),
 
             Forms\Components\Select::make('rental_id')
-                ->label('Limit to rental (optional)')
+                ->label(__('Limit to rental (optional)'))
                 ->options(fn (Forms\Get $get) => Rental::query()
                     ->when(static::scopedPropertyId($get), fn ($q, $pid) => $q->where('property_id', $pid))
                     ->with('unit')->get()
                     ->mapWithKeys(fn ($r) => [$r->id => '#'.$r->id.' · '.($r->unit?->room_number ?? '')]))
-                ->searchable()->placeholder('Whole property'),
+                ->searchable()->placeholder(__('Whole property')),
         ])->columns(2);
     }
 
@@ -96,13 +97,13 @@ class UtilityWaiverResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('propertyUtility.name')->label('Utility')->searchable(),
-                Tables\Columns\TextColumn::make('unit.room_number')->label('Unit')->placeholder('Whole property'),
-                Tables\Columns\TextColumn::make('rental.id')->label('Rental')->placeholder('—'),
-                Tables\Columns\IconColumn::make('waived')->boolean(),
+                Tables\Columns\TextColumn::make('propertyUtility.name')->label(__('Utility'))->searchable(),
+                Tables\Columns\TextColumn::make('unit.room_number')->label(__('Unit'))->placeholder(__('Whole property')),
+                Tables\Columns\TextColumn::make('rental.id')->label(__('Rental'))->placeholder('-'),
+                Tables\Columns\IconColumn::make('waived')->label(__('Waived'))->boolean(),
             ])
             ->filters([
-                Tables\Filters\TernaryFilter::make('waived'),
+                Tables\Filters\TernaryFilter::make('waived')->label(__('Waived')),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([

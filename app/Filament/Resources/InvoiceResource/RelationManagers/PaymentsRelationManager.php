@@ -41,7 +41,7 @@ class PaymentsRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('paid_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('amount')->money('USD'),
                 Tables\Columns\TextColumn::make('method')->badge(),
-                Tables\Columns\TextColumn::make('recordedBy.name')->label('Recorded by'),
+                Tables\Columns\TextColumn::make('recordedBy.name')->label(__('Recorded by')),
                 Tables\Columns\TextColumn::make('receipt_number')->placeholder('—'),
             ])
             ->headerActions([

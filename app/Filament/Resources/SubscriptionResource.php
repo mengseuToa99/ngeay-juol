@@ -63,13 +63,13 @@ class SubscriptionResource extends Resource
             Forms\Components\Section::make(__('Landlord'))
                 ->schema([
                     Forms\Components\Select::make('landlord_id')
-                        ->label('Landlord')
+                        ->label(__('Landlord'))
                         ->options(fn () => User::role('landlord')->pluck('name', 'id'))
                         ->searchable()
                         ->required()
                         ->disabled(fn (string $operation) => $operation === 'edit'),
                     Forms\Components\Select::make('plan_id')
-                        ->label('Plan')
+                        ->label(__('Plan'))
                         ->relationship('plan', 'name')
                         ->required()
                         ->live(),
@@ -81,8 +81,8 @@ class SubscriptionResource extends Resource
             Forms\Components\Section::make(__('Plan snapshot'))
                 ->schema([
                     Forms\Components\TextInput::make('price')->required()->numeric()->prefix('$'),
-                    Forms\Components\TextInput::make('max_units')->numeric()->placeholder('Unlimited'),
-                    Forms\Components\TextInput::make('max_properties')->numeric()->placeholder('Unlimited'),
+                    Forms\Components\TextInput::make('max_units')->numeric()->placeholder(__('Unlimited')),
+                    Forms\Components\TextInput::make('max_properties')->numeric()->placeholder(__('Unlimited')),
                     Forms\Components\DatePicker::make('starts_at')->required(),
                     Forms\Components\DatePicker::make('ends_at')->required(),
                     Forms\Components\DatePicker::make('grace_ends_at'),
@@ -105,11 +105,11 @@ class SubscriptionResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('landlord.name')
-                    ->label('Landlord')
+                    ->label(__('Landlord'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('plan.name')
-                    ->label('Plan')
+                    ->label(__('Plan'))
                     ->badge()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')
@@ -119,7 +119,7 @@ class SubscriptionResource extends Resource
                     ->money(fn ($record) => $record->currency)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('current_unit_count')
-                    ->label('Units')
+                    ->label(__('Units'))
                     ->badge()
                     ->color('gray')
                     ->suffix(fn ($record) => $record->max_units ? " / {$record->max_units}" : ''),
@@ -146,16 +146,16 @@ class SubscriptionResource extends Resource
                 Tables\Filters\SelectFilter::make('status')
                     ->options(SubscriptionStatus::class),
                 Tables\Filters\SelectFilter::make('plan_id')
-                    ->label('Plan')
+                    ->label(__('Plan'))
                     ->relationship('plan', 'name'),
                 Tables\Filters\Filter::make('expiring_soon')
-                    ->label('Expiring within 7 days')
+                    ->label(__('Expiring within 7 days'))
                     ->query(fn (Builder $q) => $q
                         ->where('ends_at', '>=', now())
                         ->where('ends_at', '<=', now()->addDays(7))
                     ),
                 Tables\Filters\Filter::make('past_due')
-                    ->label('Past due')
+                    ->label(__('Past due'))
                     ->query(fn (Builder $q) => $q
                         ->where('ends_at', '<', now())
                         ->whereIn('status', [SubscriptionStatus::Active->value, SubscriptionStatus::Trial->value])
@@ -168,7 +168,7 @@ class SubscriptionResource extends Resource
                     Tables\Actions\EditAction::make(),
                     // Renew
                     Tables\Actions\Action::make('renew')
-                        ->label('Renew')
+                        ->label(__('Renew'))
                         ->icon('heroicon-o-arrow-path')
                         ->color('success')
                         ->form([
@@ -176,7 +176,7 @@ class SubscriptionResource extends Resource
                                 ->required()->numeric()->prefix('$')
                                 ->default(fn (Subscription $record) => $record->price),
                             Forms\Components\Select::make('method')
-                                ->label('Payment method')
+                                ->label(__('Payment method'))
                                 ->options(\App\Enums\PaymentMethod::class)
                                 ->default(\App\Enums\PaymentMethod::BankTransfer->value),
                             Forms\Components\DatePicker::make('paid_at')
@@ -189,7 +189,7 @@ class SubscriptionResource extends Resource
                         ->visible(fn (Subscription $record) => $record->status !== SubscriptionStatus::Suspended),
                     // Extend
                     Tables\Actions\Action::make('extend')
-                        ->label('Extend')
+                        ->label(__('Extend'))
                         ->icon('heroicon-o-arrow-right-circle')
                         ->color('info')
                         ->form([
@@ -200,7 +200,7 @@ class SubscriptionResource extends Resource
                         ->action(fn (Subscription $record, array $data) => SubscriptionService::extend($record, $data['days'], $data['reason'])),
                     // Shorten
                     Tables\Actions\Action::make('shorten')
-                        ->label('Shorten')
+                        ->label(__('Shorten'))
                         ->icon('heroicon-o-arrow-left-circle')
                         ->color('warning')
                         ->form([
@@ -211,18 +211,18 @@ class SubscriptionResource extends Resource
                         ->action(fn (Subscription $record, array $data) => SubscriptionService::shorten($record, $data['days'], $data['reason'])),
                     // Change plan
                     Tables\Actions\Action::make('changePlan')
-                        ->label('Change plan')
+                        ->label(__('Change plan'))
                         ->icon('heroicon-o-arrows-right-left')
                         ->color('gray')
                         ->form([
                             Forms\Components\Select::make('plan_id')
-                                ->label('New plan')
+                                ->label(__('New plan'))
                                 ->options(fn () => SubscriptionPlan::where('is_active', true)->pluck('name', 'id'))
                                 ->required(),
                             Forms\Components\Toggle::make('immediate')
-                                ->label('Apply immediately (upgrade)')
+                                ->label(__('Apply immediately (upgrade)'))
                                 ->default(true)
-                                ->helperText('Off = apply at period end (downgrade).'),
+                                ->helperText(__('Off = apply at period end (downgrade).')),
                         ])
                         ->action(function (Subscription $record, array $data): void {
                             $plan = SubscriptionPlan::findOrFail($data['plan_id']);
@@ -230,15 +230,15 @@ class SubscriptionResource extends Resource
                         }),
                     // Cancel
                     Tables\Actions\Action::make('cancel')
-                        ->label('Cancel')
+                        ->label(__('Cancel'))
                         ->icon('heroicon-o-x-circle')
                         ->color('danger')
                         ->requiresConfirmation()
                         ->form([
                             Forms\Components\Textarea::make('reason')->rows(2),
                             Forms\Components\Toggle::make('immediate')
-                                ->label('Cancel immediately')
-                                ->helperText('Off = cancel at period end (runs until ends_at).'),
+                                ->label(__('Cancel immediately'))
+                                ->helperText(__('Off = cancel at period end (runs until ends_at).')),
                         ])
                         ->action(fn (Subscription $record, array $data) => SubscriptionService::cancel(
                             $record,
@@ -248,7 +248,7 @@ class SubscriptionResource extends Resource
                         ->visible(fn (Subscription $record) => $record->status !== SubscriptionStatus::Cancelled),
                     // Suspend
                     Tables\Actions\Action::make('suspend')
-                        ->label('Suspend')
+                        ->label(__('Suspend'))
                         ->icon('heroicon-o-pause-circle')
                         ->color('danger')
                         ->requiresConfirmation()
@@ -259,7 +259,7 @@ class SubscriptionResource extends Resource
                         ->visible(fn (Subscription $record) => $record->status !== SubscriptionStatus::Suspended),
                     // Reactivate
                     Tables\Actions\Action::make('reactivate')
-                        ->label('Reactivate')
+                        ->label(__('Reactivate'))
                         ->icon('heroicon-o-play-circle')
                         ->color('success')
                         ->requiresConfirmation()
@@ -299,11 +299,11 @@ class SubscriptionResource extends Resource
             Infolists\Components\Section::make(__('Usage'))
                 ->schema([
                     Infolists\Components\TextEntry::make('current_unit_count')
-                        ->label('Units used')
+                        ->label(__('Units used'))
                         ->suffix(fn ($record) => $record->max_units ? " / {$record->max_units}" : ' / Unlimited'),
                     Infolists\Components\TextEntry::make('max_properties')
-                        ->label('Max properties')
-                        ->placeholder('Unlimited'),
+                        ->label(__('Max properties'))
+                        ->placeholder(__('Unlimited')),
                 ])->columns(2),
 
             Infolists\Components\Section::make(__('Suspension / Cancellation'))

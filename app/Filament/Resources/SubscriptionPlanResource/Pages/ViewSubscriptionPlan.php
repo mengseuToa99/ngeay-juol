@@ -31,9 +31,9 @@ class ViewSubscriptionPlan extends ViewRecord
             Infolists\Components\Section::make(__('Limits'))
                 ->schema([
                     Infolists\Components\TextEntry::make('max_units')
-                        ->placeholder('Unlimited'),
+                        ->placeholder(__('Unlimited')),
                     Infolists\Components\TextEntry::make('max_properties')
-                        ->placeholder('Unlimited'),
+                        ->placeholder(__('Unlimited')),
                     Infolists\Components\TextEntry::make('trial_days')
                         ->suffix(' days'),
                     Infolists\Components\TextEntry::make('grace_days')

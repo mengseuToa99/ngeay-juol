@@ -11,17 +11,24 @@ class TenantProfile extends Model
         'user_id',
         'id_card_number',
         'occupation',
+        'workplace',
         'monthly_income',
         'emergency_contact_name',
         'emergency_contact_phone',
+        'emergency_contact_relationship',
         'guarantor_name',
         'guarantor_phone',
+        'guarantor_id_number',
+        'guarantor_address',
+        'move_in_date',
+        'notes',
     ];
 
     protected function casts(): array
     {
         return [
             'monthly_income' => 'decimal:2',
+            'move_in_date' => 'date',
         ];
     }
 

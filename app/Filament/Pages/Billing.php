@@ -76,7 +76,7 @@ class Billing extends Page
 
         return [
             Actions\Action::make('renew')
-                ->label('Renew subscription')
+                ->label(__('Renew subscription'))
                 ->icon('heroicon-o-arrow-path')
                 ->color('success')
                 ->form([
@@ -96,12 +96,12 @@ class Billing extends Page
                 ->visible(fn () => $this->subscription?->auto_renew || $this->subscription?->ends_at?->isPast()),
 
             Actions\Action::make('upgrade')
-                ->label('Upgrade plan')
+                ->label(__('Upgrade plan'))
                 ->icon('heroicon-o-arrow-trending-up')
                 ->color('success')
                 ->form([
                     Forms\Components\Select::make('plan_id')
-                        ->label('Choose a plan')
+                        ->label(__('Choose a plan'))
                         ->options(fn () => SubscriptionPlan::where('is_active', true)
                             ->where('max_units', '>', $this->subscription?->max_units ?? 0)
                             ->orWhereNull('max_units')
@@ -116,12 +116,12 @@ class Billing extends Page
                 }),
 
             Actions\Action::make('downgrade')
-                ->label('Downgrade plan')
+                ->label(__('Downgrade plan'))
                 ->icon('heroicon-o-arrow-trending-down')
                 ->color('warning')
                 ->form([
                     Forms\Components\Select::make('plan_id')
-                        ->label('Choose a plan')
+                        ->label(__('Choose a plan'))
                         ->options(fn () => SubscriptionPlan::where('is_active', true)->pluck('name', 'id'))
                         ->required(),
                 ])
@@ -133,13 +133,13 @@ class Billing extends Page
                 }),
 
             Actions\Action::make('cancel')
-                ->label('Cancel subscription')
+                ->label(__('Cancel subscription'))
                 ->icon('heroicon-o-x-circle')
                 ->color('danger')
                 ->requiresConfirmation()
                 ->form([
                     Forms\Components\Textarea::make('reason')
-                        ->label('Why are you cancelling?')
+                        ->label(__('Why are you cancelling?'))
                         ->rows(2),
                 ])
                 ->action(function (array $data): void {

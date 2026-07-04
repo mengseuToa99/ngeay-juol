@@ -60,7 +60,7 @@ class SubscriptionPlanResource extends Resource
                         ->required()->maxLength(255),
                     Forms\Components\TextInput::make('slug')
                         ->required()->maxLength(255)->unique(ignoreRecord: true)
-                        ->helperText('URL-friendly identifier.'),
+                        ->helperText(__('URL-friendly identifier.')),
                     Forms\Components\Textarea::make('description')->rows(3),
                     Forms\Components\Select::make('billing_model')
                         ->options(PlanBillingModel::class)->required(),
@@ -78,14 +78,14 @@ class SubscriptionPlanResource extends Resource
             Forms\Components\Section::make(__('Limits'))
                 ->schema([
                     Forms\Components\TextInput::make('max_units')
-                        ->numeric()->minValue(0)->placeholder('Unlimited'),
+                        ->numeric()->minValue(0)->placeholder(__('Unlimited')),
                     Forms\Components\TextInput::make('max_properties')
-                        ->numeric()->minValue(0)->placeholder('Unlimited'),
+                        ->numeric()->minValue(0)->placeholder(__('Unlimited')),
                     Forms\Components\TextInput::make('trial_days')
                         ->numeric()->default(0)->suffix('days'),
                     Forms\Components\TextInput::make('grace_days')
                         ->numeric()->default(0)->suffix('days')
-                        ->helperText('0 = use platform default (7 days).'),
+                        ->helperText(__('0 = use platform default (7 days).')),
                 ])->columns(4),
 
             Forms\Components\Section::make(__('Features'))
@@ -99,7 +99,7 @@ class SubscriptionPlanResource extends Resource
             Forms\Components\Section::make(__('Visibility'))
                 ->schema([
                     Forms\Components\Toggle::make('is_active')
-                        ->label('Active (available for new subscriptions)')
+                        ->label(__('Active (available for new subscriptions)'))
                         ->default(true),
                     Forms\Components\TextInput::make('sort_order')
                         ->numeric()->default(0),
@@ -121,12 +121,12 @@ class SubscriptionPlanResource extends Resource
                     ->money(fn ($record) => $record->currency)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('max_units')
-                    ->label('Max units')
+                    ->label(__('Max units'))
                     ->badge()->color('gray'),
                 Tables\Columns\IconColumn::make('is_active')
                     ->boolean()->sortable(),
                 Tables\Columns\TextColumn::make('subscriptions_count')
-                    ->label('Subscribers')
+                    ->label(__('Subscribers'))
                     ->counts('subscriptions')
                     ->badge()->sortable(),
             ])

@@ -5,9 +5,15 @@ use App\Http\Controllers\TenantPortalController;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Route;
 
+use App\Http\Controllers\Auth\LoginController;
+
 Route::get('/', function () {
     return view('welcome');
 });
+
+Route::get('login', [LoginController::class, 'showLogin'])->name('login');
+Route::post('login', [LoginController::class, 'login']);
+Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 
 // ---------------------------------------------------------------------------
 // Invoice documents — PDF (A4 / A5 / thermal receipt) + Excel export. Behind
@@ -24,21 +30,25 @@ Route::middleware(['auth', \App\Http\Middleware\SetLocale::class])->group(functi
 });
 
 // ---------------------------------------------------------------------------
-// Tenant portal — username login, read-only invoice view. Guarded inline so it
+// Tenant portal — read-only invoice view. Guarded inline so it
 // never collides with the Filament admin auth (which uses email + blocks tenants).
 // ---------------------------------------------------------------------------
 Route::prefix('portal')->name('portal.')->group(function () {
-    Route::get('login', [TenantPortalController::class, 'showLogin'])->name('login');
-    Route::post('login', [TenantPortalController::class, 'login'])->middleware('throttle:6,1')->name('login.attempt');
-    // Guarded inside the controller (redirects guests to portal.login).
+    // Guarded inside the controller (redirects guests to login).
     Route::get('/', [TenantPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('invoices/{invoice}', [TenantPortalController::class, 'invoice'])->name('invoice');
+    Route::get('maintenance', [TenantPortalController::class, 'maintenanceIndex'])->name('maintenance.index');
+    Route::get('maintenance/create', [TenantPortalController::class, 'maintenanceCreate'])->name('maintenance.create');
+    Route::post('maintenance', [TenantPortalController::class, 'maintenanceStore'])->name('maintenance.store');
+    Route::get('maintenance/{maintenanceRequest}', [TenantPortalController::class, 'maintenanceShow'])->name('maintenance.show');
+    Route::post('maintenance/{maintenanceRequest}/replies', [TenantPortalController::class, 'maintenanceReply'])->name('maintenance.reply');
     Route::post('logout', [TenantPortalController::class, 'logout'])->name('logout');
 });
 
 Route::get('/locale/{locale}', function (string $locale) {
     if (in_array($locale, config('app.supported_locales', ['en']), true)) {
         session(['locale' => $locale]);
+        cookie()->queue('locale', $locale, 60 * 24 * 365); // 1 year
     }
 
     return redirect()->back();

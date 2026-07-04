@@ -61,11 +61,11 @@ class PaymentResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('invoice.invoice_number')->label('Invoice')->searchable()->sortable(),
+                Tables\Columns\TextColumn::make('invoice.invoice_number')->label(__('Invoice'))->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('amount')->money('USD')->sortable(),
                 Tables\Columns\TextColumn::make('paid_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('method')->badge(),
-                Tables\Columns\TextColumn::make('recordedBy.name')->label('Recorded by')->toggleable(),
+                Tables\Columns\TextColumn::make('recordedBy.name')->label(__('Recorded by'))->toggleable(),
                 Tables\Columns\TextColumn::make('receipt_number')->placeholder('—')->toggleable(),
             ])
             ->filters([
@@ -105,7 +105,6 @@ class PaymentResource extends Resource
     {
         return [
             'index' => Pages\ListPayments::route('/'),
-            'create' => Pages\CreatePayment::route('/create'),
             'edit' => Pages\EditPayment::route('/{record}/edit'),
         ];
     }

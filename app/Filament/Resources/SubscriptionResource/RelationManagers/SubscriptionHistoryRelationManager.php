@@ -31,25 +31,25 @@ class SubscriptionHistoryRelationManager extends RelationManager
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('created_at')
-                    ->label('Date')
+                    ->label(__('Date'))
                     ->dateTime()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('action')
                     ->badge()
                     ->formatStateUsing(fn (SubscriptionAction $state) => $state->getLabel()),
                 Tables\Columns\TextColumn::make('plan.name')
-                    ->label('Plan')
+                    ->label(__('Plan'))
                     ->badge(),
                 Tables\Columns\TextColumn::make('period_start')
-                    ->label('From')
+                    ->label(__('From'))
                     ->date(),
                 Tables\Columns\TextColumn::make('period_end')
-                    ->label('To')
+                    ->label(__('To'))
                     ->date(),
                 Tables\Columns\TextColumn::make('amount_charged')
                     ->money(fn ($record) => $record->subscription?->currency ?? 'USD'),
                 Tables\Columns\TextColumn::make('createdBy.name')
-                    ->label('By')
+                    ->label(__('By'))
                     ->placeholder('System'),
             ])
             ->filters([

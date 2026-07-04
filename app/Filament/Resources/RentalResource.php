@@ -43,7 +43,7 @@ class RentalResource extends Resource
     public static function form(Form $form): Form
     {
         return $form->schema([
-            Forms\Components\Section::make('Tenancy')
+            Forms\Components\Section::make(__('Tenancy'))
                 ->schema([
                     Forms\Components\Select::make('unit_id')
                         ->relationship(
@@ -97,29 +97,66 @@ class RentalResource extends Resource
                     Forms\Components\DatePicker::make('end_date'),
                 ])->columns(2),
 
-            Forms\Components\Section::make('Tenant / Occupant')
-                ->description('The actual person renting this period (e.g. C1, then C2 next year). Kept per tenancy so history is preserved. Their login is created automatically.')
+            Forms\Components\Section::make(__('Tenant / Occupant'))
+                ->description(__('The actual person renting this period (e.g. C1, then C2 next year). Kept per tenancy so history is preserved. Their login is created automatically.'))
                 ->schema([
-                    Forms\Components\TextInput::make('occupant_name')->label('Full name')->required(),
-                    Forms\Components\TextInput::make('occupant_phone')->label('Phone')->tel(),
-                    Forms\Components\TextInput::make('occupant_id_card')->label('ID card number'),
-                    Forms\Components\TextInput::make('occupant_address')->label('Address'),
+                    Forms\Components\TextInput::make('occupant_name')->label(__('Full name'))->required(),
+                    Forms\Components\TextInput::make('occupant_phone')->label(__('Phone'))->tel(),
+                    Forms\Components\Select::make('occupant_gender')
+                        ->label(__('Gender'))
+                        ->options([
+                            'male' => __('Male'),
+                            'female' => __('Female'),
+                            'other' => __('Other'),
+                        ])
+                        ->placeholder(__('Select gender')),
+                    Forms\Components\DatePicker::make('occupant_dob')
+                        ->label(__('Date of birth'))
+                        ->maxDate(now()),
+                    Forms\Components\TextInput::make('occupant_nationality')->label(__('Nationality'))
+                        ->placeholder(__('e.g. Khmer, Vietnamese')),
+                    Forms\Components\TextInput::make('occupant_workplace')->label(__('Workplace'))
+                        ->placeholder(__('e.g. company name')),
+                    Forms\Components\TextInput::make('occupant_id_card')->label(__('ID card number')),
+                    Forms\Components\TextInput::make('occupant_address')->label(__('Address')),
+                    
+                    Forms\Components\Fieldset::make(__('Emergency contact'))
+                        ->schema([
+                            Forms\Components\TextInput::make('emergency_contact_name')->label(__('Name')),
+                            Forms\Components\TextInput::make('emergency_contact_phone')->label(__('Phone'))->tel(),
+                            Forms\Components\TextInput::make('emergency_contact_relationship')
+                                ->label(__('Relationship'))
+                                ->placeholder(__('e.g. mother, brother')),
+                        ])->columns(3),
+
+                    Forms\Components\Fieldset::make(__('Guarantor'))
+                        ->schema([
+                            Forms\Components\TextInput::make('guarantor_name')->label(__('Name')),
+                            Forms\Components\TextInput::make('guarantor_phone')->label(__('Phone'))->tel(),
+                            Forms\Components\TextInput::make('guarantor_id_number')->label(__('ID number')),
+                            Forms\Components\TextInput::make('guarantor_address')->label(__('Address')),
+                        ])->columns(2),
+
                     SpatieMediaLibraryFileUpload::make('id_cards')
                         ->collection('id_cards')
-                        ->label('ID card photos')
+                        ->label(__('ID card photos'))
                         ->image()
                         ->multiple()
                         ->reorderable()
                         ->maxFiles(4)
-                        ->helperText('Front/back of national ID, passport, etc.')
+                        ->helperText(__('Front/back of national ID, passport, etc.'))
                         ->columnSpanFull(),
                 ])->columns(2),
 
-            Forms\Components\Section::make('Agreement')
+            Forms\Components\Section::make(__('Agreement'))
                 ->schema([
-                    Forms\Components\TextInput::make('lease_agreement')->label('Agreement reference / file path'),
+                    Forms\Components\TextInput::make('lease_agreement')->label(__('Agreement reference / file path')),
                     Forms\Components\DateTimePicker::make('signed_at'),
                     Forms\Components\Textarea::make('terms_conditions')->columnSpanFull(),
+                    Forms\Components\Textarea::make('notes')
+                        ->label(__('Notes'))
+                        ->placeholder(__('Private notes about this tenancy'))
+                        ->columnSpanFull(),
                 ])->columns(2)
                 ->collapsed(),
         ]);
@@ -129,10 +166,10 @@ class RentalResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('unit.room_number')->label('Unit')->sortable(),
-                Tables\Columns\TextColumn::make('occupant_name')->label('Occupant')->placeholder('—')->searchable(),
-                Tables\Columns\TextColumn::make('occupant_id_card')->label('ID card')->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
-                Tables\Columns\TextColumn::make('tenant.username')->label('Login')->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('unit.room_number')->label(__('Unit'))->sortable(),
+                Tables\Columns\TextColumn::make('occupant_name')->label(__('Occupant'))->placeholder('—')->searchable(),
+                Tables\Columns\TextColumn::make('occupant_id_card')->label(__('ID card'))->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
+                Tables\Columns\TextColumn::make('tenant.username')->label(__('Login'))->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('monthly_rent')->money('USD'),
                 Tables\Columns\TextColumn::make('status')->badge(),
                 Tables\Columns\TextColumn::make('start_date')->date(),

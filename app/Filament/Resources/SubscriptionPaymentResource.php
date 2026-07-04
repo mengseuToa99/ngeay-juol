@@ -54,7 +54,7 @@ class SubscriptionPaymentResource extends Resource
             Forms\Components\Section::make(__('Payment details'))
                 ->schema([
                     Forms\Components\Select::make('landlord_id')
-                        ->label('Landlord')
+                        ->label(__('Landlord'))
                         ->options(fn () => \App\Models\User::role('landlord')->pluck('name', 'id'))
                         ->searchable()
                         ->required()
@@ -94,21 +94,21 @@ class SubscriptionPaymentResource extends Resource
             ->defaultSort('created_at', 'desc')
             ->columns([
                 Tables\Columns\TextColumn::make('subscription.landlord.name')
-                    ->label('Landlord')
+                    ->label(__('Landlord'))
                     ->searchable()
                     ->sortable(),
                 Tables\Columns\TextColumn::make('receipt_number')
-                    ->label('Receipt')
+                    ->label(__('Receipt'))
                     ->searchable(),
                 Tables\Columns\TextColumn::make('amount')
                     ->money(fn ($record) => $record->currency)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')->badge(),
-                Tables\Columns\TextColumn::make('method')->label('Method'),
+                Tables\Columns\TextColumn::make('method')->label(__('Method')),
                 Tables\Columns\TextColumn::make('paid_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('gateway')->badge()->color('gray')->toggleable(),
                 Tables\Columns\TextColumn::make('recordedBy.name')
-                    ->label('Recorded by')
+                    ->label(__('Recorded by'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([

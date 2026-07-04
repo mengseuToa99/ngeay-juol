@@ -79,6 +79,7 @@ class PropertySettings extends Page implements HasForms
                 'require_first_month_upfront' => false,
                 'upfront_deposit_months'      => 0,
                 'monthly_billing_enabled'     => false,
+                'invoice_due_days'            => 7,
             ],
         );
 
@@ -105,6 +106,10 @@ class PropertySettings extends Page implements HasForms
                         Forms\Components\TextInput::make('invoice_prefix')->placeholder('e.g. RIV'),
                         Forms\Components\TextInput::make('due_day_of_month')
                             ->numeric()->minValue(1)->maxValue(28)->default(7),
+                        Forms\Components\TextInput::make('invoice_due_days')
+                            ->label(__('Invoice Due Duration (Days)'))
+                            ->helperText(__('Number of days after the issue date before the invoice becomes overdue.'))
+                            ->numeric()->minValue(1)->default(7),
                         Forms\Components\TextInput::make('late_fee')->numeric()->prefix('$')->default(0),
                         Forms\Components\TextInput::make('water_billing_default')->placeholder('e.g. metered / flat'),
                     ])->columns(2),

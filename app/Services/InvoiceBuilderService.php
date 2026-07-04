@@ -58,11 +58,13 @@ class InvoiceBuilderService
     {
         return DB::transaction(function () use ($data) {
             $rental = $data['rental'] ?? Rental::withoutGlobalScopes()->findOrFail($data['rental_id']);
+            $propertySetting = PropertySetting::where('property_id', $rental->property_id)->first();
+            $dueDays = $propertySetting?->invoice_due_days ?? 7;
 
             $periodStart = Carbon::parse($data['period_start']);
             $periodEnd = Carbon::parse($data['period_end']);
             $issueDate = isset($data['issue_date']) ? Carbon::parse($data['issue_date']) : Carbon::now();
-            $dueDate = isset($data['due_date']) ? Carbon::parse($data['due_date']) : $periodEnd->copy()->addDays(7);
+            $dueDate = isset($data['due_date']) ? Carbon::parse($data['due_date']) : $issueDate->copy()->addDays($dueDays);
 
             $invoice = new Invoice([
                 'rental_id' => $rental->id,
@@ -86,9 +88,6 @@ class InvoiceBuilderService
                 $isFirstInvoice = (bool) ($data['is_first_invoice'] ?? false);
 
                 if ($isFirstInvoice) {
-                    // Load property settings once for proration/deposit logic.
-                    $propertySetting = PropertySetting::where('property_id', $rental->property_id)->first();
-
                     $rent = ProratingService::compute(
                         $propertySetting,
                         (float) $rental->monthly_rent,

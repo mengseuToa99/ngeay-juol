@@ -54,10 +54,10 @@ class PropertiesRelationManager extends RelationManager
             ->columns([
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('property_type')->badge(),
-                Tables\Columns\TextColumn::make('city')->label('Province / City')->searchable()->placeholder('—'),
-                Tables\Columns\TextColumn::make('units_count')->counts('units')->label('Units')->badge(),
-                Tables\Columns\TextColumn::make('rentals_count')->counts('rentals')->label('Tenancies')->badge()->color('gray'),
-                Tables\Columns\TextColumn::make('invoices_count')->counts('invoices')->label('Invoices')->badge()->color('gray'),
+                Tables\Columns\TextColumn::make('city')->label(__('Invoices'))->searchable()->placeholder('—'),
+                Tables\Columns\TextColumn::make('units_count')->counts('units')->label(__('Open'))->badge(),
+                Tables\Columns\TextColumn::make('rentals_count')->counts('rentals')->label(__('Tenancies'))->badge()->color('gray'),
+                Tables\Columns\TextColumn::make('invoices_count')->counts('invoices')->label(__('Invoices'))->badge()->color('gray'),
                 Tables\Columns\TextColumn::make('created_at')->dateTime()->sortable()->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
@@ -65,7 +65,7 @@ class PropertiesRelationManager extends RelationManager
             ])
             ->actions([
                 Tables\Actions\Action::make('open')
-                    ->label('Open')
+                    ->label(__('Open'))
                     ->icon('heroicon-m-arrow-top-right-on-square')
                     // PropertyResource lives in the separate `landlord` panel. Select
                     // the property into the active-property context first so the

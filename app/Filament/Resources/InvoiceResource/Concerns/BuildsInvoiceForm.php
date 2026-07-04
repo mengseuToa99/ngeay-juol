@@ -36,7 +36,7 @@ trait BuildsInvoiceForm
                         ->live()
                         ->disabled($isEdit)
                         ->dehydrated(! $isEdit)
-                        ->afterStateUpdated(fn ($state, Set $set) => static::onRoomSelected($state, $set))
+                        ->afterStateUpdated(fn ($state, Set $set, Get $get) => static::onRoomSelected($state, $set, $get))
                         ->helperText($isEdit
                             ? __('The room is fixed for an existing invoice.')
                             : __('Only occupied rooms (with an active tenant) can be billed.')),
@@ -61,9 +61,21 @@ trait BuildsInvoiceForm
                         ->default(fn () => Carbon::now()->startOfMonth()),
                     Forms\Components\Hidden::make('period_end')
                         ->default(fn () => Carbon::now()->endOfMonth()),
-                    Forms\Components\DatePicker::make('issue_date')->required()->default(now()),
+                    Forms\Components\DatePicker::make('issue_date')
+                        ->required()
+                        ->default(now())
+                        ->live()
+                        ->afterStateUpdated(function ($state, Set $set, Get $get) {
+                            $unitId = $get('unit_id');
+                            if ($unitId) {
+                                $unit = Unit::with('property.settings')->find($unitId);
+                                $dueDays = $unit?->property?->settings?->invoice_due_days ?? 7;
+                                if ($state) {
+                                    $set('due_date', Carbon::parse($state)->addDays($dueDays)->toDateString());
+                                }
+                            }
+                        }),
                     Forms\Components\Hidden::make('due_date')
-                        ->default(fn () => Carbon::now()->endOfMonth()->addDays(7)),
                 ])->columns(2),
 
             Forms\Components\Section::make(__('Utility readings'))
@@ -152,9 +164,9 @@ trait BuildsInvoiceForm
     }
 
     /** When a room is picked: fill rent + rental, and load its active-utility meters. */
-    protected static function onRoomSelected($unitId, Set $set): void
+    protected static function onRoomSelected($unitId, Set $set, Get $get): void
     {
-        $unit = $unitId ? Unit::with('activeRental')->find($unitId) : null;
+        $unit = $unitId ? Unit::with(['activeRental', 'property.settings'])->find($unitId) : null;
         if (! $unit) {
             $set('rental_id', null);
             $set('readings', []);
@@ -164,6 +176,11 @@ trait BuildsInvoiceForm
 
         $set('rental_id', $unit->activeRental?->id);
         $set('monthly_rent', (string) $unit->rent_amount);
+
+        // Update due date based on property setting
+        $dueDays = $unit->property?->settings?->invoice_due_days ?? 7;
+        $issueDate = $get('issue_date') ? Carbon::parse($get('issue_date')) : Carbon::now();
+        $set('due_date', $issueDate->copy()->addDays($dueDays)->toDateString());
 
         $utilities = PropertyUtility::where('property_id', $unit->property_id)
             ->where('is_active', true)->get();

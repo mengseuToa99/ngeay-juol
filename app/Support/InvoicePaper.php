@@ -7,7 +7,7 @@ use App\Models\Invoice;
 /**
  * Paper-size catalogue for invoice documents.
  *
- * Knows the four printable sizes RentWise supports — two ISO pages (A4, A5) and
+ * Knows the four printable sizes ngeay juol supports — two ISO pages (A4, A5) and
  * two thermal receipt widths (80 mm, 65 mm) — plus how each one maps onto a
  * dompdf paper spec. Thermal sizes have no fixed height: the page grows with the
  * number of line items and payments so a long receipt is never clipped.

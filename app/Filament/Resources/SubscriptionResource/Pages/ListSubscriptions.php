@@ -13,7 +13,7 @@ class ListSubscriptions extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()->label('Assign subscription'),
+            Actions\CreateAction::make()->label(__('Assign subscription')),
         ];
     }
 }

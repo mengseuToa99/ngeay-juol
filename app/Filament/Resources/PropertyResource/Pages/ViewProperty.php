@@ -52,23 +52,23 @@ class ViewProperty extends ViewRecord
         return $infolist->schema([
             Section::make()
                 ->schema([
-                    TextEntry::make('name')->label('Property')->weight('bold')->size('lg'),
+                    TextEntry::make('name')->label(__('Property'))->weight('bold')->size('lg'),
                     TextEntry::make('property_type')->badge(),
                     TextEntry::make('address')
-                        ->label('Address')
+                        ->label(__('Address'))
                         ->state(fn ($record) => collect([$record->address_line, $record->village, $record->commune, $record->district, $record->city])->filter()->implode(', ') ?: '—'),
-                    TextEntry::make('landlord.name')->label('Owner')->visible(fn () => auth()->user()?->isPlatformStaff()),
+                    TextEntry::make('landlord.name')->label(__('Owner'))->visible(fn () => auth()->user()?->isPlatformStaff()),
                 ])->columns(2),
 
-            Section::make('At a glance')
+            Section::make(__('At a glance'))
                 ->schema([
-                    TextEntry::make('rooms')->label('Rooms')
+                    TextEntry::make('rooms')->label(__('Rooms'))
                         ->state(fn ($record) => $record->units()->count()),
-                    TextEntry::make('occupied')->label('Occupied')
+                    TextEntry::make('occupied')->label(__('Occupied'))
                         ->state(fn ($record) => $record->units()->where('status', UnitStatus::Occupied->value)->count()),
-                    TextEntry::make('utilities')->label('Active utilities')
+                    TextEntry::make('utilities')->label(__('Active utilities'))
                         ->state(fn ($record) => $record->propertyUtilities()->where('is_active', true)->count()),
-                    TextEntry::make('outstanding')->label('Outstanding')
+                    TextEntry::make('outstanding')->label(__('Outstanding'))
                         ->state(fn ($record) => '$'.number_format((float) $record->invoices()
                             ->whereIn('payment_status', [InvoiceStatus::Pending->value, InvoiceStatus::Partial->value, InvoiceStatus::Overdue->value])
                             ->selectRaw('COALESCE(SUM(amount_due - amount_paid),0) as b')->value('b'), 2))

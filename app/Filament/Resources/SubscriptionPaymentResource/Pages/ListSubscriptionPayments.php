@@ -13,7 +13,7 @@ class ListSubscriptionPayments extends ListRecords
     protected function getHeaderActions(): array
     {
         return [
-            Actions\CreateAction::make()->label('Record payment'),
+            Actions\CreateAction::make()->label(__('Record payment')),
         ];
     }
 }

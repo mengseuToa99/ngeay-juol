@@ -25,6 +25,7 @@ class PropertySetting extends Model
         'upfront_deposit_months',
         // ── Monthly billing feature flag ────────────────────────────────────────────
         'monthly_billing_enabled',
+        'invoice_due_days',
         // ── Property info & contacts ───────────────────────────────────
         'water_billing_default',
         'parking_info',
@@ -45,6 +46,7 @@ class PropertySetting extends Model
             'create_invoice_on_move_in'   => 'boolean',
             'upfront_deposit_months'      => 'integer',
             'monthly_billing_enabled'     => 'boolean',
+            'invoice_due_days'            => 'integer',
         ];
     }
 

@@ -12,6 +12,7 @@
 @php
     /** @var \App\Models\Invoice $invoice */
     use App\Models\Invoice;
+    use App\Support\BrandLogo;
 
     $money = fn ($v) => '$' . number_format((float) $v, 2);
     $qty = fn ($v) => rtrim(rtrim(number_format((float) $v, 3), '0'), '.');
@@ -23,11 +24,8 @@
     $business = $property?->name ?? config('app.name');
     $address = $property?->formatted_address;
 
-    $initials = collect(preg_split('/\s+/', trim((string) $business)))
-        ->filter()
-        ->take(2)
-        ->map(fn ($w) => mb_strtoupper(mb_substr($w, 0, 1)))
-        ->implode('') ?: 'R';
+    $logoDataUri = BrandLogo::dataUri();
+    $initials = BrandLogo::fallbackInitials((string) $business);
 
     $owing = (float) $invoice->balance > 0.005;
 
@@ -100,7 +98,9 @@
         /* Header */
         .rw-head { display: flex; justify-content: space-between; align-items: flex-start; gap: 1.5rem; flex-wrap: wrap; padding-bottom: 1.5rem; border-bottom: 1px solid var(--rw-line); }
         .rw-brand { display: flex; align-items: center; gap: .85rem; min-width: 0; }
-        .rw-logo { flex: none; width: 2.75rem; height: 2.75rem; border-radius: .75rem; background: linear-gradient(135deg, #059669, #10b981); color: #fff; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 1.05rem; letter-spacing: -.02em; }
+        .rw-logo { flex: none; width: 2.75rem; height: 2.75rem; border-radius: .75rem; background: #fff; border: 1px solid var(--rw-line); display: flex; align-items: center; justify-content: center; overflow: hidden; }
+        .rw-logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+        .rw-logo span { color: #059669; font-weight: 800; font-size: 1.05rem; letter-spacing: -.02em; }
         .rw-biz-name { font-size: 1.15rem; font-weight: 800; letter-spacing: -.01em; color: var(--rw-ink); }
         .rw-biz-addr { display: flex; align-items: flex-start; gap: .3rem; font-size: .75rem; color: var(--rw-muted); margin-top: .2rem; max-width: 18rem; line-height: 1.4; }
         .rw-biz-addr svg { width: .85rem; height: .85rem; margin-top: .1rem; flex: none; color: var(--rw-emerald); }
@@ -177,7 +177,13 @@
         {{-- Header --}}
         <div class="rw-head">
             <div class="rw-brand">
-                <div class="rw-logo">{{ $initials }}</div>
+                <div class="rw-logo">
+                    @if ($logoDataUri)
+                        <img src="{{ $logoDataUri }}" alt="{{ $business }}">
+                    @else
+                        <span>{{ $initials }}</span>
+                    @endif
+                </div>
                 <div>
                     <div class="rw-biz-name">{{ $business }}</div>
                     @if ($address)
