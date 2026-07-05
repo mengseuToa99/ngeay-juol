@@ -1,5 +1,25 @@
 <x-filament-panels::page>
     <form wire:submit="generate">
+        @php $access = $this->getAccess(); @endphp
+
+        @if($access === \App\Enums\SubscriptionAccess::PastDue)
+            <x-filament::alert
+                type="warning"
+                title="{{ __('Subscription past due') }}"
+                icon="heroicon-o-exclamation-triangle"
+            >
+                {{ __('Your subscription is past due.') }} {{ __('Please complete payment to restore full access.') }}
+            </x-filament::alert>
+        @elseif($access === \App\Enums\SubscriptionAccess::ReadOnly)
+            <x-filament::alert
+                type="danger"
+                title="{{ __('Write actions are disabled') }}"
+                icon="heroicon-o-lock-closed"
+            >
+                {{ __('Your subscription is now read-only until payment is completed.') }}
+            </x-filament::alert>
+        @endif
+
         {{ $this->form }}
 
         @php
@@ -37,13 +57,15 @@
                     </span>
                 </div>
 
-                <x-filament::button
-                    type="submit"
-                    icon="heroicon-o-document-currency-dollar"
-                    size="lg"
-                >
-                    {{ __('Generate invoices') }}
-                </x-filament::button>
+                @if($access !== \App\Enums\SubscriptionAccess::ReadOnly)
+                    <x-filament::button
+                        type="submit"
+                        icon="heroicon-o-document-currency-dollar"
+                        size="lg"
+                    >
+                        {{ __('Generate invoices') }}
+                    </x-filament::button>
+                @endif
             </div>
         @else
             {{-- ── Empty state — nothing due ────────────────────────────────── --}}

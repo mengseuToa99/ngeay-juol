@@ -31,6 +31,7 @@ class EnsureActiveSubscription
 
         // Stash the access level for the panel rendering layer.
         $request->attributes->set('_subscription_access', $access);
+        $request->attributes->set('_subscription_readonly', $access === SubscriptionAccess::ReadOnly);
 
         if ($access === SubscriptionAccess::Revoked) {
             auth()->logout();

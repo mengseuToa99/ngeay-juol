@@ -2,14 +2,17 @@
 
 namespace App\Filament\Resources;
 
+use App\Enums\PaymentMethod;
 use App\Enums\SubscriptionPaymentStatus;
 use App\Filament\Resources\SubscriptionPaymentResource\Pages;
 use App\Models\SubscriptionPayment;
+use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
 use Filament\Tables;
 use Filament\Tables\Table;
+use Illuminate\Database\Eloquent\Builder;
 
 class SubscriptionPaymentResource extends Resource
 {
@@ -77,8 +80,10 @@ class SubscriptionPaymentResource extends Resource
                     Forms\Components\Select::make('method')
                         ->options(\App\Enums\PaymentMethod::class)
                         ->required(),
-                    Forms\Components\Hidden::make('status')
-                        ->default(SubscriptionPaymentStatus::Succeeded),
+                    Forms\Components\Select::make('status')
+                        ->options(SubscriptionPaymentStatus::class)
+                        ->default(SubscriptionPaymentStatus::Succeeded->value)
+                        ->required(),
                     Forms\Components\DatePicker::make('paid_at'),
                     Forms\Components\DatePicker::make('covers_from')->required(),
                     Forms\Components\DatePicker::make('covers_to')->required(),
@@ -97,6 +102,10 @@ class SubscriptionPaymentResource extends Resource
                     ->label(__('Landlord'))
                     ->searchable()
                     ->sortable(),
+                Tables\Columns\TextColumn::make('subscription.plan.name')
+                    ->label(__('Plan'))
+                    ->badge()
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('receipt_number')
                     ->label(__('Receipt'))
                     ->searchable(),
@@ -104,16 +113,148 @@ class SubscriptionPaymentResource extends Resource
                     ->money(fn ($record) => $record->currency)
                     ->sortable(),
                 Tables\Columns\TextColumn::make('status')->badge(),
-                Tables\Columns\TextColumn::make('method')->label(__('Method')),
-                Tables\Columns\TextColumn::make('paid_at')->dateTime()->sortable(),
-                Tables\Columns\TextColumn::make('gateway')->badge()->color('gray')->toggleable(),
+                Tables\Columns\TextColumn::make('method')
+                    ->label(__('Payment method'))
+                    ->formatStateUsing(fn (PaymentMethod|string|int|null $state): string => match (true) {
+                        $state instanceof PaymentMethod => $state->getLabel(),
+                        is_numeric($state) => PaymentMethod::tryFrom((int) $state)?->getLabel() ?? (string) $state,
+                        default => __((string) $state),
+                    }),
+                Tables\Columns\TextColumn::make('covers_from')
+                    ->label(__('Coverage from'))
+                    ->date()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('covers_to')
+                    ->label(__('Coverage until'))
+                    ->date()
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('paid_at')
+                    ->label(__('Payment date'))
+                    ->date('d-m-Y')
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('gateway')
+                    ->label(__('Gateway'))
+                    ->badge()
+                    ->color('gray')
+                    ->formatStateUsing(fn (?string $state): string => match ($state) {
+                        null, '' => '—',
+                        'manual' => __('Manual'),
+                        default => __(ucfirst(str_replace(['_', '-'], ' ', $state))),
+                    })
+                    ->toggleable(),
                 Tables\Columns\TextColumn::make('recordedBy.name')
                     ->label(__('Recorded by'))
                     ->toggleable(isToggledHiddenByDefault: true),
             ])
             ->filters([
+                Tables\Filters\Filter::make('paid_at')
+                    ->label(__('Payment date'))
+                    ->form([
+                        Forms\Components\Select::make('period')
+                            ->label(__('Period'))
+                            ->options([
+                                'this_month' => __('This month'),
+                                'last_month' => __('Last month'),
+                                'last_2_months' => __('Last 2 months'),
+                                'last_3_months' => __('Last 3 months'),
+                                'last_6_months' => __('Last 6 months'),
+                                'this_year' => __('This year'),
+                                'custom' => __('Custom'),
+                            ])
+                            ->placeholder(__('All time'))
+                            ->live(),
+
+                        Forms\Components\DatePicker::make('from')
+                            ->label(__('From'))
+                            ->visible(fn (Forms\Get $get) => $get('period') === 'custom'),
+
+                        Forms\Components\DatePicker::make('until')
+                            ->label(__('Until'))
+                            ->visible(fn (Forms\Get $get) => $get('period') === 'custom'),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $period = $data['period'] ?? null;
+
+                        if (! $period) {
+                            return $query;
+                        }
+
+                        if ($period === 'custom') {
+                            return $query
+                                ->when($data['from'] ?? null, fn (Builder $q, $date) => $q->whereDate('paid_at', '>=', $date))
+                                ->when($data['until'] ?? null, fn (Builder $q, $date) => $q->whereDate('paid_at', '<=', $date));
+                        }
+
+                        $now = now();
+
+                        [$from, $until] = match ($period) {
+                            'this_month' => [$now->copy()->startOfMonth(), $now->copy()->endOfMonth()],
+                            'last_month' => [$now->copy()->subMonth()->startOfMonth(), $now->copy()->subMonth()->endOfMonth()],
+                            'last_2_months' => [$now->copy()->subMonths(2)->startOfMonth(), $now->copy()->endOfMonth()],
+                            'last_3_months' => [$now->copy()->subMonths(3)->startOfMonth(), $now->copy()->endOfMonth()],
+                            'last_6_months' => [$now->copy()->subMonths(6)->startOfMonth(), $now->copy()->endOfMonth()],
+                            'this_year' => [$now->copy()->startOfYear(), $now->copy()->endOfYear()],
+                            default => [null, null],
+                        };
+
+                        return $query
+                            ->when($from, fn (Builder $q, $date) => $q->whereDate('paid_at', '>=', $date))
+                            ->when($until, fn (Builder $q, $date) => $q->whereDate('paid_at', '<=', $date));
+                    })
+                    ->indicateUsing(function (array $data): array {
+                        $period = $data['period'] ?? null;
+
+                        if (! $period) {
+                            return [];
+                        }
+
+                        $label = match ($period) {
+                            'this_month' => __('This month'),
+                            'last_month' => __('Last month'),
+                            'last_2_months' => __('Last 2 months'),
+                            'last_3_months' => __('Last 3 months'),
+                            'last_6_months' => __('Last 6 months'),
+                            'this_year' => __('This year'),
+                            'custom' => collect([
+                                ($data['from'] ?? null) ? __('From').' '.Carbon::parse($data['from'])->toFormattedDateString() : null,
+                                ($data['until'] ?? null) ? __('Until').' '.Carbon::parse($data['until'])->toFormattedDateString() : null,
+                            ])->filter()->implode(' — ') ?: __('Custom'),
+                            default => null,
+                        };
+
+                        return $label ? [Tables\Filters\Indicator::make($label)->removeField('period')] : [];
+                    }),
                 Tables\Filters\SelectFilter::make('status')
+                    ->label(__('Status'))
                     ->options(SubscriptionPaymentStatus::class),
+                Tables\Filters\SelectFilter::make('landlord_id')
+                    ->label(__('Landlord'))
+                    ->relationship('landlord', 'name')
+                    ->searchable()
+                    ->preload(),
+                Tables\Filters\SelectFilter::make('method')
+                    ->label(__('Method'))
+                    ->options(\App\Enums\PaymentMethod::class),
+                Tables\Filters\Filter::make('coverage_period')
+                    ->label(__('Coverage period'))
+                    ->form([
+                        Forms\Components\DatePicker::make('coverage_from')
+                            ->label(__('Coverage from')),
+                        Forms\Components\DatePicker::make('coverage_until')
+                            ->label(__('Coverage until')),
+                    ])
+                    ->query(function (Builder $query, array $data): Builder {
+                        $coverageFrom = $data['coverage_from'] ?? null;
+                        $coverageUntil = $data['coverage_until'] ?? null;
+
+                        if (! $coverageFrom && ! $coverageUntil) {
+                            return $query;
+                        }
+
+                        return $query
+                            ->when($coverageFrom, fn (Builder $q, $date) => $q->whereDate('covers_to', '>=', $date))
+                            ->when($coverageUntil, fn (Builder $q, $date) => $q->whereDate('covers_from', '<=', $date));
+                    }),
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([

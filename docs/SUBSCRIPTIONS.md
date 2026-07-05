@@ -67,6 +67,8 @@ The schema stores `max_units` and a `unit_price` column to support per-unit over
 
 After `ends_at` passes, a configurable grace window (plan-level, falls back to `Setting::get('grace_days', 7, 'billing')`). During grace: `past_due` — full access with prominent warnings + dunning emails. After grace: `expired`.
 
+When a period ends without a completed renewal, the scheduler also creates a pending `subscription_payments` row for the next coverage window. Admins can mark that pending renewal as succeeded, which renews the subscription once and extends the next billing period.
+
 ### Retention window
 
 After expiry, landlord has 90 days (configurable via `Setting`) to pay / export data. After that: `revoked`. Data is never hard-deleted — only access is denied.
@@ -184,6 +186,7 @@ Single choke point for all state transitions.
 ```
 assign(User $landlord, SubscriptionPlan $plan, array $opts = []): Subscription
 renew(Subscription $sub, array $paymentData): SubscriptionPayment|false
+ensurePendingRenewalPayment(Subscription $sub): ?SubscriptionPayment
 changePlan(Subscription $sub, SubscriptionPlan $newPlan, bool $immediate = false): void
 cancel(Subscription $sub, ?string $reason, bool $immediate = false): void
 suspend(Subscription $sub, string $reason): void
@@ -202,6 +205,7 @@ assertWithinUnitCap(User $user, int $newCount): void
 - `effectiveAccess()` is the **only** place date logic is evaluated. Results cached per-request.
 - Plan terms are **snapshotted** on assignment/change; editing a plan never alters an active subscription.
 - Payments are **idempotent** on `(covers_from, covers_to, gateway)` — calling `renew()` twice with the same payment data is safe.
+- Pending renewal payments are **idempotent** on `(subscription_id, covers_from, covers_to)` — the scheduler never creates duplicates for the same renewal window.
 
 ---
 

@@ -15,6 +15,10 @@ use App\Models\SubscriptionPayment;
 use App\Models\SubscriptionPlan;
 use App\Models\Unit;
 use App\Models\User;
+use App\Notifications\SubscriptionAccessChangedNotification;
+use App\Notifications\SubscriptionRenewalPendingNotification;
+use App\Support\Notifications\NotificationDeduplicator;
+use App\Support\Notifications\NotificationRecipients;
 use App\Services\Billing\ManualGateway;
 use App\Services\Billing\UnsupportedGateway;
 use App\Support\Billing\GatewayChargeResult;
@@ -71,12 +75,33 @@ class SubscriptionService
 
     public static function renew(Subscription $sub, array $paymentData): SubscriptionPayment
     {
-        $interval = $sub->interval;
-        $periodStart = $sub->ends_at ? $sub->ends_at->copy() : now()->startOfDay();
-        $newEndsAt = $interval->addInterval($periodStart->copy());
+        $periodStart = isset($paymentData['covers_from'])
+            ? Carbon::parse($paymentData['covers_from'])->startOfDay()
+            : ($sub->ends_at ? $sub->ends_at->copy()->startOfDay() : now()->startOfDay());
+        $newEndsAt = isset($paymentData['covers_to'])
+            ? Carbon::parse($paymentData['covers_to'])->startOfDay()
+            : $sub->interval->addInterval($periodStart->copy());
+        $gateway = (string) ($paymentData['gateway'] ?? 'manual');
+        $receiptNumber = $paymentData['receipt_number'] ?? null;
 
-        return DB::transaction(function () use ($sub, $paymentData, $periodStart, $newEndsAt) {
-            $payment = SubscriptionPayment::create([
+        return DB::transaction(function () use ($sub, $paymentData, $periodStart, $newEndsAt, $gateway, $receiptNumber) {
+            $payment = SubscriptionPayment::withoutGlobalScopes()
+                ->where('subscription_id', $sub->id)
+                ->whereDate('covers_from', $periodStart->toDateString())
+                ->whereDate('covers_to', $newEndsAt->toDateString())
+                ->where('gateway', $gateway)
+                ->lockForUpdate()
+                ->first();
+
+            if ($payment && $payment->status === SubscriptionPaymentStatus::Succeeded) {
+                return $payment;
+            }
+
+            if (! $payment) {
+                $payment = new SubscriptionPayment;
+            }
+
+            $payment->fill([
                 'subscription_id' => $sub->id,
                 'landlord_id' => $sub->landlord_id,
                 'plan_id' => $sub->plan_id,
@@ -87,32 +112,121 @@ class SubscriptionService
                 'paid_at' => $paymentData['paid_at'] ?? now(),
                 'covers_from' => $periodStart,
                 'covers_to' => $newEndsAt,
-                'gateway' => $paymentData['gateway'] ?? 'manual',
+                'gateway' => $gateway,
                 'gateway_transaction_id' => $paymentData['gateway_transaction_id'] ?? null,
                 'gateway_ref' => $paymentData['gateway_ref'] ?? null,
-                'receipt_number' => $paymentData['receipt_number'] ?? static::nextReceiptNumber(),
-                'note' => $paymentData['note'] ?? null,
+                'receipt_number' => $receiptNumber ?? ($payment?->receipt_number ?? static::nextReceiptNumber()),
+                'note' => $paymentData['note'] ?? ($payment?->note ?? null),
                 'recorded_by_id' => $paymentData['recorded_by_id'] ?? Auth::id(),
             ]);
+            $payment->save();
 
-            $sub->update([
-                'status' => SubscriptionStatus::Active,
-                'ends_at' => $newEndsAt,
-                'grace_ends_at' => self::resolveGraceEndsAt($newEndsAt, $sub->plan),
-                'cancelled_at' => null,
-                'cancellation_reason' => null,
-                'suspended_at' => null,
-                'suspension_reason' => null,
-            ]);
+            if (! $sub->ends_at || ! $sub->ends_at->isSameDay($newEndsAt) || $sub->status !== SubscriptionStatus::Active) {
+                $sub->update([
+                    'status' => SubscriptionStatus::Active,
+                    'ends_at' => $newEndsAt,
+                    'grace_ends_at' => self::resolveGraceEndsAt($newEndsAt, $sub->plan),
+                    'cancelled_at' => null,
+                    'cancellation_reason' => null,
+                    'suspended_at' => null,
+                    'suspension_reason' => null,
+                ]);
 
-            static::recordHistory($sub, SubscriptionAction::Renewed, [
-                'period_start' => $periodStart,
-                'period_end' => $newEndsAt,
-                'amount_charged' => $paymentData['amount'],
-            ]);
+                static::recordHistory($sub, SubscriptionAction::Renewed, [
+                    'period_start' => $periodStart,
+                    'period_end' => $newEndsAt,
+                    'amount_charged' => $paymentData['amount'],
+                ]);
+            }
 
             return $payment;
         });
+    }
+
+    public static function ensurePendingRenewalPayment(Subscription $subscription): ?SubscriptionPayment
+    {
+        if (! $subscription->ends_at) {
+            return null;
+        }
+
+        $periodStart = $subscription->ends_at->copy()->startOfDay();
+        $periodEnd = $subscription->interval->addInterval($periodStart->copy());
+
+        return DB::transaction(function () use ($subscription, $periodStart, $periodEnd) {
+            $existing = SubscriptionPayment::withoutGlobalScopes()
+                ->where('subscription_id', $subscription->id)
+                ->whereDate('covers_from', $periodStart->toDateString())
+                ->whereDate('covers_to', $periodEnd->toDateString())
+                ->whereIn('status', [
+                    SubscriptionPaymentStatus::Pending->value,
+                    SubscriptionPaymentStatus::Succeeded->value,
+                ])
+                ->lockForUpdate()
+                ->first();
+
+            if ($existing) {
+                return $existing;
+            }
+
+            $payment = SubscriptionPayment::create([
+                'subscription_id' => $subscription->id,
+                'landlord_id' => $subscription->landlord_id,
+                'plan_id' => $subscription->plan_id,
+                'amount' => $subscription->price,
+                'currency' => $subscription->currency,
+                'method' => PaymentMethod::BankTransfer,
+                'status' => SubscriptionPaymentStatus::Pending,
+                'paid_at' => null,
+                'covers_from' => $periodStart,
+                'covers_to' => $periodEnd,
+                'gateway' => 'manual',
+                'gateway_transaction_id' => null,
+                'gateway_ref' => null,
+                'receipt_number' => null,
+                'note' => __('Subscription renewal pending payment'),
+                'recorded_by_id' => null,
+            ]);
+
+            foreach (NotificationRecipients::landlordOperators((int) $subscription->landlord_id) as $user) {
+                NotificationDeduplicator::sendOnce(
+                    $user,
+                    new SubscriptionRenewalPendingNotification(
+                        $subscription,
+                        'renewal_pending',
+                        $periodStart->toDateString(),
+                        $periodEnd->toDateString(),
+                    ),
+                    [
+                        'subscription_id' => $subscription->id,
+                        'reminder_stage' => 'renewal_pending',
+                        'covers_from' => $periodStart->toDateString(),
+                        'covers_to' => $periodEnd->toDateString(),
+                    ],
+                );
+            }
+
+            return $payment;
+        });
+    }
+
+    public static function ensurePendingRenewalPayments(): int
+    {
+        $created = 0;
+
+        Subscription::withoutGlobalScopes()
+            ->whereIn('status', [SubscriptionStatus::Active->value, SubscriptionStatus::Trial->value])
+            ->whereDate('ends_at', '<=', Carbon::today())
+            ->chunkById(100, function ($subscriptions) use (&$created) {
+                foreach ($subscriptions as $subscription) {
+                    $payment = static::ensurePendingRenewalPayment($subscription);
+
+                    if ($payment && $payment->wasRecentlyCreated) {
+                        $created++;
+                    }
+                }
+            });
+
+        return $created;
     }
 
     /** @return array{renewed:int, skipped:int, failed:int, details:list<array<string, mixed>>} */
@@ -396,6 +510,11 @@ class SubscriptionService
         return data_get($sub->features, $feature, false);
     }
 
+    public static function canMutate(User $user): bool
+    {
+        return self::effectiveAccess($user) !== SubscriptionAccess::ReadOnly;
+    }
+
     public static function assertWithinUnitCap(User $user, int $newCount = 1): void
     {
         $sub = Subscription::withoutGlobalScopes()
@@ -434,6 +553,19 @@ class SubscriptionService
                     if ($pastGrace || $noGrace) {
                         $sub->updateQuietly(['status' => SubscriptionStatus::Cancelled]);
                         $count++;
+
+                        if ($pastGrace || $noGrace) {
+                            foreach (NotificationRecipients::landlordOperators((int) $sub->landlord_id) as $user) {
+                                NotificationDeduplicator::sendOnce(
+                                    $user,
+                                    new SubscriptionAccessChangedNotification($sub, 'read_only'),
+                                    [
+                                        'subscription_id' => $sub->id,
+                                        'access_state' => 'read_only',
+                                    ],
+                                );
+                            }
+                        }
                     }
                 }
             });
@@ -444,13 +576,34 @@ class SubscriptionService
     public static function purgeRevoked(): int
     {
         $retentionDays = (int) Setting::get('retention_days', 90, 'billing');
-        $cutoff = Carbon::today()->subDays($retentionDays);
         $count = 0;
 
-        // We don't actually delete; we mark with a special state or just let
-        // effectiveAccess() handle it. For now this is a no-op — the access guard
-        // already handles >retention-window subs via effectiveAccess().
-        // This method exists for future cleanup hooks (e.g., data anonymization).
+        Subscription::withoutGlobalScopes()
+            ->where('status', SubscriptionStatus::Cancelled->value)
+            ->whereNotNull('ends_at')
+            ->chunkById(100, function ($subs) use (&$count, $retentionDays) {
+                foreach ($subs as $sub) {
+                    if (! $sub->ends_at) {
+                        continue;
+                    }
+
+                    if ($sub->ends_at->copy()->addDays($retentionDays)->greaterThanOrEqualTo(Carbon::today())) {
+                        continue;
+                    }
+
+                    foreach (NotificationRecipients::landlordOperators((int) $sub->landlord_id) as $user) {
+                        NotificationDeduplicator::sendOnce(
+                            $user,
+                            new SubscriptionAccessChangedNotification($sub, 'revoked'),
+                            [
+                                'subscription_id' => $sub->id,
+                                'access_state' => 'revoked',
+                            ],
+                        );
+                    }
+                    $count++;
+                }
+            });
 
         return $count;
     }

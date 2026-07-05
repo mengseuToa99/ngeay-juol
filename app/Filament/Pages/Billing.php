@@ -70,6 +70,10 @@ class Billing extends Page
 
     protected function getHeaderActions(): array
     {
+        if (! SubscriptionService::canMutate(Auth::user())) {
+            return [];
+        }
+
         if (! $this->subscription || $this->subscription->status === \App\Enums\SubscriptionStatus::Suspended) {
             return [];
         }

@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\BillingType;
 use App\Enums\ReadingType;
 use App\Enums\RentalStatus;
+use App\Enums\SubscriptionAccess;
 use App\Models\Invoice;
 use App\Models\Property;
 use App\Models\PropertySetting;
@@ -13,6 +14,7 @@ use App\Models\Rental;
 use App\Models\UtilityUsage;
 use App\Services\InvoiceBuilderService;
 use App\Services\ProratingService;
+use App\Services\SubscriptionService;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -388,6 +390,15 @@ class MonthlyBilling extends Page implements HasForms
 
     public function generate(): void
     {
+        if ($this->getAccess() === SubscriptionAccess::ReadOnly) {
+            Notification::make()
+                ->title(__('Write actions are disabled until payment is completed.'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
         $rows = $this->data['rows'] ?? [];
 
         if (empty($rows)) {
@@ -494,5 +505,10 @@ class MonthlyBilling extends Page implements HasForms
         // Reload — the rows will be empty if everything was billed.
         $this->data['rows'] = [];
         $this->refreshRows();
+    }
+
+    public function getAccess(): SubscriptionAccess
+    {
+        return SubscriptionService::effectiveAccess(auth()->user());
     }
 }

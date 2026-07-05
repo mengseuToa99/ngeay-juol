@@ -18,6 +18,7 @@ class ProcessSubscriptions extends Command
 {
     protected $signature = 'subscriptions:process
         {--renew : Attempt automatic renewal for due subscriptions}
+        {--bill-renewals : Ensure pending renewal payments exist for due subscriptions}
         {--sweep : Mark expired and past-grace subscriptions}
         {--recompute : Recompute unit counts for active subscriptions}
         {--dunning : Send subscription lifecycle reminders}';
@@ -47,9 +48,15 @@ class ProcessSubscriptions extends Command
             }
         }
 
+        if ($this->option('bill-renewals') || ! $this->hasOptionSpecified()) {
+            $created = SubscriptionService::ensurePendingRenewalPayments();
+            $this->info("Pending renewal payments ensured: {$created} created.");
+        }
+
         if ($this->option('sweep') || ! $this->hasOptionSpecified()) {
             $expired = SubscriptionService::markExpired();
-            $this->info("Marked {$expired} subscriptions as expired.");
+            $revoked = SubscriptionService::purgeRevoked();
+            $this->info("Marked {$expired} subscriptions as expired; {$revoked} subscriptions moved beyond retention.");
         }
 
         if ($this->option('recompute') || ! $this->hasOptionSpecified()) {
@@ -149,6 +156,7 @@ class ProcessSubscriptions extends Command
     private function hasOptionSpecified(): bool
     {
         return $this->option('renew')
+            || $this->option('bill-renewals')
             || $this->option('sweep')
             || $this->option('recompute')
             || $this->option('dunning');

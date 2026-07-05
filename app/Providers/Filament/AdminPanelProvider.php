@@ -8,6 +8,7 @@ use App\Filament\Resources\SubscriptionPaymentResource;
 use App\Filament\Resources\SubscriptionPlanResource;
 use App\Filament\Resources\SubscriptionResource;
 use App\Filament\Resources\UserResource;
+use App\Filament\Widgets\AdminPlatformStatsWidget;
 use App\Http\Middleware\SetLocale;
 use BezhanSalleh\FilamentShield\FilamentShieldPlugin;
 use Filament\Http\Middleware\Authenticate;
@@ -50,6 +51,21 @@ class AdminPanelProvider extends PanelProvider
             ->font('Plus Jakarta Sans')
             ->sidebarCollapsibleOnDesktop()
             ->sidebarWidth('17rem')
+            ->spa()
+            ->unsavedChangesAlerts()
+            ->spaUrlExceptions([
+                url('/locale/*'),
+                url('/locale/en'),
+                url('/locale/km'),
+                url('/logout'),
+                url('/admin/logout'),
+                url('/login'),
+                url('/admin/login'),
+                url('/landlord/*'),
+                url('/landlord/invoices/*/pdf*'),
+                url('/landlord/invoices/*/excel*'),
+                'mailto:*',
+            ])
             ->databaseNotifications()
             ->colors([
                 'primary' => Color::Emerald,
@@ -94,6 +110,7 @@ class AdminPanelProvider extends PanelProvider
             ])
             ->widgets([
                 AccountWidget::class,
+                AdminPlatformStatsWidget::class,
                 FilamentInfoWidget::class,
             ])
             ->plugins([

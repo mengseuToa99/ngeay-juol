@@ -112,8 +112,8 @@ class LandlordResource extends Resource
             ->columns([
                 Tables\Columns\TextColumn::make('name')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('email')->searchable()->copyable()->placeholder('—'),
-                Tables\Columns\TextColumn::make('phone_number')->label(__('Tenancies'))->placeholder('—')->toggleable(),
-                Tables\Columns\TextColumn::make('landlordProfile.company_name')->label(__('Properties'))->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('phone_number')->label(__('Phone'))->placeholder('—')->toggleable(),
+                Tables\Columns\TextColumn::make('landlordProfile.company_name')->label(__('Company'))->placeholder('—')->toggleable(),
                 Tables\Columns\TextColumn::make('properties_count')->label(__('Properties'))->badge()->sortable(),
                 Tables\Columns\TextColumn::make('rentals_as_landlord_count')->label(__('Tenancies'))->badge()->color('gray')->sortable(),
                 Tables\Columns\TextColumn::make('status')->badge(),

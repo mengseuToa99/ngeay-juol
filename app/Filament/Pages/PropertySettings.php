@@ -5,6 +5,7 @@ namespace App\Filament\Pages;
 use App\Enums\FirstMonthBillingMode;
 use App\Models\PropertySetting;
 use App\Support\ActiveProperty;
+use App\Services\SubscriptionService;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -192,6 +193,15 @@ class PropertySettings extends Page implements HasForms
     public function save(): void
     {
         abort_unless($this->setting !== null, 403);
+
+        if (! SubscriptionService::canMutate(auth()->user())) {
+            Notification::make()
+                ->danger()
+                ->title(__('Write actions are disabled until payment is completed.'))
+                ->send();
+
+            return;
+        }
 
         $this->setting->update($this->form->getState());
 

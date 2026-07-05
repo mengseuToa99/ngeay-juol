@@ -61,6 +61,21 @@ class LandlordPanelProvider extends PanelProvider
             ->font('Plus Jakarta Sans')
             ->sidebarCollapsibleOnDesktop()
             ->sidebarWidth('17rem')
+            ->spa()
+            ->unsavedChangesAlerts()
+            ->spaUrlExceptions([
+                url('/locale/*'),
+                url('/locale/en'),
+                url('/locale/km'),
+                url('/logout'),
+                url('/landlord/logout'),
+                url('/login'),
+                url('/landlord/login'),
+                url('/admin/*'),
+                url('/landlord/invoices/*/pdf*'),
+                url('/landlord/invoices/*/excel*'),
+                'mailto:*',
+            ])
             ->globalSearch(false)
             ->databaseNotifications()
             ->colors([

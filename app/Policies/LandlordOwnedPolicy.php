@@ -3,6 +3,8 @@
 namespace App\Policies;
 
 use App\Models\User;
+use App\Enums\SubscriptionAccess;
+use App\Services\SubscriptionService;
 use Illuminate\Database\Eloquent\Model;
 
 /**
@@ -50,32 +52,32 @@ abstract class LandlordOwnedPolicy
 
     public function create(User $user): bool
     {
-        return $this->allows($user, 'create');
+        return $this->allows($user, 'create') && $this->allowsWrites($user);
     }
 
     public function update(User $user, Model $record): bool
     {
-        return $this->allows($user, 'update') && $this->owns($user, $record);
+        return $this->allows($user, 'update') && $this->owns($user, $record) && $this->allowsWrites($user);
     }
 
     public function delete(User $user, Model $record): bool
     {
-        return $this->allows($user, 'delete') && $this->owns($user, $record);
+        return $this->allows($user, 'delete') && $this->owns($user, $record) && $this->allowsWrites($user);
     }
 
     public function restore(User $user, Model $record): bool
     {
-        return $this->allows($user, 'restore') && $this->owns($user, $record);
+        return $this->allows($user, 'restore') && $this->owns($user, $record) && $this->allowsWrites($user);
     }
 
     public function forceDelete(User $user, Model $record): bool
     {
-        return $this->allows($user, 'force_delete') && $this->owns($user, $record);
+        return $this->allows($user, 'force_delete') && $this->owns($user, $record) && $this->allowsWrites($user);
     }
 
     public function deleteAny(User $user): bool
     {
-        return $this->allows($user, 'delete_any');
+        return $this->allows($user, 'delete_any') && $this->allowsWrites($user);
     }
 
     protected function owns(User $user, Model $record): bool
@@ -85,5 +87,10 @@ abstract class LandlordOwnedPolicy
         }
 
         return $this->ownerId($record) === $user->effectiveLandlordId();
+    }
+
+    protected function allowsWrites(User $user): bool
+    {
+        return SubscriptionService::effectiveAccess($user) !== SubscriptionAccess::ReadOnly;
     }
 }
