@@ -27,13 +27,31 @@ Route::post('logout', [LoginController::class, 'logout'])->name('logout');
 Route::middleware(['auth', \App\Http\Middleware\SetLocale::class])->group(function () {
     Route::get('landlord/invoices/{invoice}/pdf', [InvoiceDocumentController::class, 'pdf'])->name('invoices.pdf');
     Route::get('landlord/invoices/{invoice}/excel', [InvoiceDocumentController::class, 'excel'])->name('invoices.excel');
+
+    Route::post('landlord/simple-mode/toggle', function (\Illuminate\Http\Request $request) {
+        $user = $request->user();
+
+        abort_unless(\App\Support\SimpleLandlordMode::canUse($user), 403);
+
+        $enabled = ! \App\Support\SimpleLandlordMode::enabledFor($user);
+
+        $user->forceFill([
+            'prefers_simple_landlord_mode' => $enabled,
+        ])->save();
+
+        return redirect()->route(
+            $enabled
+                ? 'filament.landlord.pages.simple'
+                : 'filament.landlord.pages.dashboard',
+        );
+    })->name('landlord.simple-mode.toggle');
 });
 
 // ---------------------------------------------------------------------------
 // Tenant portal — read-only invoice view. Guarded inline so it
 // never collides with the Filament admin auth (which uses email + blocks tenants).
 // ---------------------------------------------------------------------------
-Route::prefix('portal')->name('portal.')->group(function () {
+Route::prefix('portal')->name('portal.')->middleware([\App\Http\Middleware\SetLocale::class])->group(function () {
     // Guarded inside the controller (redirects guests to login).
     Route::get('/', [TenantPortalController::class, 'dashboard'])->name('dashboard');
     Route::get('invoices/{invoice}', [TenantPortalController::class, 'invoice'])->name('invoice');

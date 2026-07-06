@@ -6,6 +6,7 @@ use App\Enums\BillingType;
 use App\Enums\ReadingType;
 use App\Enums\RentalStatus;
 use App\Enums\SubscriptionAccess;
+use App\Filament\Resources\InvoiceResource;
 use App\Models\Invoice;
 use App\Models\Property;
 use App\Models\PropertySetting;
@@ -15,45 +16,65 @@ use App\Models\UtilityUsage;
 use App\Services\InvoiceBuilderService;
 use App\Services\ProratingService;
 use App\Services\SubscriptionService;
-use Filament\Forms;
-use Filament\Forms\Concerns\InteractsWithForms;
-use Filament\Forms\Contracts\HasForms;
-use Filament\Forms\Form;
-use Filament\Forms\Get;
+use App\Services\UtilityBillingService;
+use App\Support\ActiveProperty;
+use App\Support\Money;
+use Carbon\Carbon;
+use Filament\Facades\Filament;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
-use Illuminate\Support\Carbon;
+use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 /**
- * Monthly billing — zero-click flow:
- *
- * The page opens with every due room already loaded and ready.
- * The landlord only needs to enter new meter readings then press Generate.
- *
- * A room is "due" when its next_invoice_date ≤ today (or has never been set).
- * After each successful run next_invoice_date rolls forward one month automatically.
+ * Desktop-first monthly billing workspace.
  */
-class MonthlyBilling extends Page implements HasForms
+class MonthlyBilling extends Page
 {
-    use InteractsWithForms;
-
     protected static ?string $navigationIcon = 'heroicon-o-calendar-days';
 
     protected static ?int $navigationSort = 6;
 
     protected static string $view = 'filament.pages.monthly-billing';
 
-    // ── Filament form state ───────────────────────────────────────────────
-    public ?array $data = [];
+    public bool $embedded = false;
 
-    /** Whether monthly billing is enabled for the current property. */
-    public bool $billingEnabled = false;
+    protected $queryString = [
+        'embedded',
+    ];
 
-    // ─────────────────────────────────────────────────────────────────────
+    public string $step = 'blocked';
+
+    public bool $manualMode = false;
+
+    public array $selectedRentalIds = [];
+
+    public ?int $propertyId = null;
+
+    public string $issueDate = '';
+
+    public int $currentRoomIndex = 0;
+
+    public array $rooms = [];
+
+    public ?int $reviewFocusIndex = null;
+
+    public bool $showCreateConfirmation = false;
+
+    public bool $creatingInvoices = false;
+
+    public array $resultSummary = [
+        'created' => 0,
+        'skipped' => 0,
+        'failed' => 0,
+        'invoice_ids' => [],
+        'failures' => [],
+    ];
 
     /**
-     * Navigation badge: count of active rentals whose next_invoice_date is
-     * today or overdue — i.e. rooms waiting to be billed.
+     * Navigation badge: active rentals due for billing across visible properties.
      */
     public static function getNavigationBadge(): ?string
     {
@@ -62,13 +83,12 @@ class MonthlyBilling extends Page implements HasForms
             return null;
         }
 
-        // Only count properties that have actually enabled the feature.
         $count = Rental::where('status', RentalStatus::Active->value)
             ->where('landlord_id', $landlordId)
             ->whereHas('unit.property.settings', fn ($q) => $q->where('monthly_billing_enabled', true))
             ->where(function ($q) {
                 $q->whereNull('next_invoice_date')
-                  ->orWhereDate('next_invoice_date', '<=', now()->toDateString());
+                    ->orWhereDate('next_invoice_date', '<=', now()->toDateString());
             })
             ->count();
 
@@ -82,8 +102,8 @@ class MonthlyBilling extends Page implements HasForms
 
     public static function getNavigationGroup(): ?string
     {
-        return \App\Support\ActiveProperty::id() !== null
-            ? \App\Support\ActiveProperty::NAV_GROUP
+        return ActiveProperty::id() !== null
+            ? ActiveProperty::NAV_GROUP
             : 'Billing';
     }
 
@@ -94,61 +114,894 @@ class MonthlyBilling extends Page implements HasForms
 
     public function getTitle(): string
     {
-        return __('Monthly billing');
+        return $this->selectedPropertyName()
+            ? __('Monthly billing').' — '.$this->selectedPropertyName()
+            : __('Monthly billing');
     }
 
     public static function canAccess(): bool
     {
-        return (bool) (auth()->user()?->can('create_invoice'));
+        return (bool) auth()->user()?->can('create_invoice');
     }
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess()
-            && (\App\Support\ActiveProperty::id() !== null || (bool) auth()->user()?->isPlatformStaff());
+        return ! \App\Support\SimpleLandlordMode::enabledFor(auth()->user())
+            && static::canAccess();
     }
 
-    // ─────────────────────────────────────────────────────────────────────
-
-    public function mount(): void
+    public function getBreadcrumbs(): array
     {
-        $propertyId = \App\Support\ActiveProperty::id();
+        return [];
+    }
 
-        $this->billingEnabled = $this->isEnabledForProperty($propertyId);
+    public function mount(bool $embedded = false): void
+    {
+        $this->embedded = $embedded;
+        $this->issueDate = now()->toDateString();
 
-        $this->form->fill([
-            'property_id'  => $propertyId,
-            'issue_date'   => $this->suggestIssueDate($propertyId),
-            'include_rent' => true,
-            'rows'         => [],
-        ]);
+        $activePropertyId = ActiveProperty::id();
+        $visiblePropertyIds = $this->visiblePropertyIds();
 
-        if ($propertyId && $this->billingEnabled) {
-            $this->refreshRows();
+        if ($activePropertyId !== null && in_array($activePropertyId, $visiblePropertyIds, true)) {
+            $this->hydrateSelectedProperty($activePropertyId);
+            return;
+        }
+
+        if (count($visiblePropertyIds) === 1) {
+            $this->hydrateSelectedProperty((int) $visiblePropertyIds[0]);
+            ActiveProperty::set($this->propertyId);
+            return;
+        }
+
+        $this->resetWizard();
+        $this->step = 'blocked';
+    }
+
+    public function visibleProperties(): Collection
+    {
+        return Property::query()
+            ->with('settings')
+            ->orderBy('name')
+            ->get();
+    }
+
+    /** @return array<int, int> */
+    protected function visiblePropertyIds(): array
+    {
+        return $this->visibleProperties()->pluck('id')->map(fn ($id) => (int) $id)->all();
+    }
+
+    public function propertyPickerCards(): Collection
+    {
+        $today = Carbon::today();
+
+        return $this->visibleProperties()
+            ->map(function (Property $property) use ($today): array {
+                $dueCount = count($this->dueRentalIds($property->id, $today));
+                $billingEnabled = (bool) $property->settings?->monthly_billing_enabled;
+
+                return [
+                    'id' => $property->id,
+                    'name' => $property->name,
+                    'due_count' => $dueCount,
+                    'status_label' => $billingEnabled
+                        ? ($dueCount > 0 ? __('Ready for billing') : __('No rooms due'))
+                        : __('Monthly billing disabled'),
+                    'status_color' => $billingEnabled
+                        ? ($dueCount > 0 ? 'success' : 'gray')
+                        : 'warning',
+                    'billing_enabled' => $billingEnabled,
+                ];
+            })
+            ->sortBy(fn (array $property) => sprintf(
+                '%s-%s',
+                $property['due_count'] > 0 ? '0' : '1',
+                Str::lower($property['name']),
+            ))
+            ->values();
+    }
+
+    public function selectedProperty(): ?Property
+    {
+        if (! $this->propertyId) {
+            return null;
+        }
+
+        return Property::with('settings')->find($this->propertyId);
+    }
+
+    public function selectedPropertyName(): ?string
+    {
+        return $this->selectedProperty()?->name ?? ActiveProperty::name();
+    }
+
+    public function issueDateLabel(): string
+    {
+        return Carbon::parse($this->issueDate ?: now()->toDateString())->translatedFormat('j M Y');
+    }
+
+    public function currencySymbol(): string
+    {
+        return Money::forPropertyId($this->propertyId)
+            ? Money::symbol(Money::forPropertyId($this->propertyId))
+            : Money::activeSymbol();
+    }
+
+    public function formatMoney(mixed $value): string
+    {
+        return Money::format($value, Money::forPropertyId($this->propertyId));
+    }
+
+    public function utilityLabel(string $name): string
+    {
+        return __($name);
+    }
+
+    public function billingEnabled(): bool
+    {
+        return $this->isBillingEnabled($this->propertyId);
+    }
+
+    public function dueRoomCount(): int
+    {
+        if (! $this->propertyId) {
+            return 0;
+        }
+
+        return count($this->dueRentalIds($this->propertyId, Carbon::parse($this->issueDate ?: now()->toDateString())));
+    }
+
+    public function activeUtilities(): Collection
+    {
+        if (! $this->propertyId) {
+            return collect();
+        }
+
+        return PropertyUtility::query()
+            ->where('property_id', $this->propertyId)
+            ->where('is_active', true)
+            ->whereIn('billing_type', [BillingType::Metered->value, BillingType::Shared->value])
+            ->orderBy('name')
+            ->get();
+    }
+
+    public function startBilling(): void
+    {
+        if (! $this->propertyId) {
+            Notification::make()
+                ->warning()
+                ->title(__('Select a property from the sidebar to start billing.'))
+                ->send();
+
+            return;
+        }
+
+        if (! $this->billingEnabled()) {
+            Notification::make()
+                ->warning()
+                ->title(__('Monthly billing is disabled for this property.'))
+                ->send();
+
+            return;
+        }
+
+        if ($this->manualMode) {
+            if (count($this->selectedRentalIds) === 0) {
+                Notification::make()
+                    ->warning()
+                    ->title(__('Please select at least one room for manual billing.'))
+                    ->send();
+
+                return;
+            }
+        } else {
+            if ($this->dueRoomCount() === 0) {
+                Notification::make()
+                    ->warning()
+                    ->title(__('No rooms are due for billing on this date.'))
+                    ->send();
+
+                return;
+            }
+        }
+
+        $this->loadRooms();
+
+        if ($this->rooms === []) {
+            Notification::make()
+                ->warning()
+                ->title($this->manualMode ? __('None of the selected rooms have active rentals.') : __('No rooms are due for billing on this date.'))
+                ->send();
+
+            return;
+        }
+
+        $this->currentRoomIndex = 0;
+        $this->reviewFocusIndex = null;
+        $this->step = 'reading';
+    }
+
+    public function chooseProperty(int $propertyId): void
+    {
+        if (! in_array($propertyId, $this->visiblePropertyIds(), true)) {
+            return;
+        }
+
+        ActiveProperty::set($propertyId);
+        $this->hydrateSelectedProperty($propertyId);
+    }
+
+    public function resetToPropertyPicker(): void
+    {
+        ActiveProperty::clear();
+        $this->resetWizard();
+        $this->step = 'blocked';
+    }
+
+    public function beginPropertyChange(): void
+    {
+        $this->resetToPropertyPicker();
+    }
+
+    public function sidebarPropertyLabel(): string
+    {
+        return ActiveProperty::name() ?? __('All properties');
+    }
+
+    public function needsSidebarPropertySelection(): bool
+    {
+        return $this->propertyId === null;
+    }
+
+    public function updateIssueDate(): void
+    {
+        if ($this->step === 'reading' || $this->step === 'review') {
+            return;
         }
     }
 
-    // ─────────────────────────────────────────────────────────────────────
+    public function currentRoom(): ?array
+    {
+        return $this->rooms[$this->currentRoomIndex] ?? null;
+    }
 
-    /**
-     * Check whether this feature is switched on for the given property.
-     */
-    protected function isEnabledForProperty(?int $propertyId): bool
+    public function currentRoomNumber(): string
+    {
+        return (string) ($this->currentRoom()['room_number'] ?? '');
+    }
+
+    public function currentRoomOccupant(): string
+    {
+        return (string) ($this->currentRoom()['occupant_name'] ?? '');
+    }
+
+    public function currentRoomProgress(): string
+    {
+        return __('Room :current of :total', [
+            'current' => min($this->currentRoomIndex + 1, max(1, count($this->rooms))),
+            'total' => max(1, count($this->rooms)),
+        ]);
+    }
+
+    public function roomSummary(int $index): array
+    {
+        $room = $this->rooms[$index] ?? null;
+
+        if (! $room) {
+            return [
+                'utility_summary' => '',
+                'rent' => 0.0,
+                'utilities_total' => 0.0,
+                'estimated_total' => 0.0,
+                'warnings' => [],
+                'warning_count' => 0,
+                'has_missing' => false,
+                'is_skipped' => false,
+                'is_complete' => false,
+            ];
+        }
+
+        $utilitiesTotal = 0.0;
+        $summaryParts = [];
+        $warnings = [];
+        $hasMissing = false;
+
+        $pStart = Carbon::parse($room['period_start']);
+        $pEnd = Carbon::parse($room['period_end']);
+        if ($pStart->isAfter($pEnd)) {
+            $warnings[] = __('Period start cannot be after period end');
+        }
+        if ($this->hasDuplicateInvoice($index)) {
+            $warnings[] = __('Duplicate invoice found for this period');
+        }
+
+        foreach ($room['utilities'] as $utilityIndex => $utility) {
+            $preview = $this->utilityPreview($index, $utilityIndex);
+            $utilitiesTotal += $preview['charge'];
+            $summaryParts[] = $utility['utility_name'].': '.(
+                ! ($preview['requires_reading'] ?? true)
+                    ? __('Fixed charge')
+                    : ($preview['amount_used'] === null
+                        ? '—'
+                        : $this->formatQuantity($preview['amount_used']))
+            );
+
+            if ($preview['warning']) {
+                $warnings[] = $preview['warning'];
+            }
+
+            if ($preview['missing']) {
+                $hasMissing = true;
+            }
+        }
+
+        $rent = (float) ($room['rent'] ?? 0);
+
+        return [
+            'utility_summary' => $summaryParts !== []
+                ? implode(' · ', $summaryParts)
+                : __('No active utilities'),
+            'rent' => $rent,
+            'utilities_total' => $utilitiesTotal,
+            'estimated_total' => round($rent + $utilitiesTotal, 2),
+            'warnings' => array_values(array_unique($warnings)),
+            'warning_count' => count(array_unique($warnings)),
+            'has_missing' => $hasMissing,
+            'is_skipped' => (bool) ($room['skipped'] ?? false),
+            'is_complete' => ! $hasMissing && ! $this->roomHasBlockingLowReadings($index) && ! $this->roomHasInvalidPeriodOrDuplicate($index) && ! (bool) ($room['skipped'] ?? false),
+        ];
+    }
+
+    public function utilityPreview(int $roomIndex, int $utilityIndex): array
+    {
+        $room = $this->rooms[$roomIndex] ?? null;
+        $utility = $room['utilities'][$utilityIndex] ?? null;
+
+        if (! $room || ! $utility) {
+            return [
+                'old_reading' => null,
+                'new_reading' => null,
+                'amount_used' => null,
+                'charge' => 0.0,
+                'warning' => null,
+                'missing' => true,
+                'requires_reading' => true,
+            ];
+        }
+
+        if (! (bool) ($utility['requires_reading'] ?? true)) {
+            return [
+                'old_reading' => null,
+                'new_reading' => null,
+                'amount_used' => null,
+                'charge' => $this->previewCharge($utility, 0.0),
+                'warning' => null,
+                'is_lower_reading' => false,
+                'is_high_usage' => false,
+                'missing' => false,
+                'requires_reading' => false,
+            ];
+        }
+
+        $old = $this->parseNumber($utility['old_reading']) ?? 0.0;
+        $new = $this->parseNumber($utility['new_reading']);
+        $missing = $new === null;
+        $amountUsed = $new === null ? null : max(0, round($new - $old, 3));
+
+        $warning = null;
+        $isLowerReading = $new !== null && $new < $old;
+        $isHighUsage = false;
+
+        if ($isLowerReading && blank($utility['override_reason'] ?? null)) {
+            $warning = __('Lower than previous reading');
+        } elseif ($new !== null && $amountUsed !== null) {
+            $previousUsage = (float) ($utility['previous_usage'] ?? 0);
+            if ($previousUsage > 0 && $amountUsed > ($previousUsage * 2)) {
+                $warning = __('Unusually high usage');
+                $isHighUsage = true;
+            }
+        }
+
+        $charge = 0.0;
+        if ($new !== null) {
+            $charge = $this->previewCharge($utility, $amountUsed ?? 0.0);
+        }
+
+        return [
+            'old_reading' => $old,
+            'new_reading' => $new,
+            'amount_used' => $amountUsed,
+            'charge' => $charge,
+            'warning' => $warning,
+            'is_lower_reading' => $isLowerReading,
+            'is_high_usage' => $isHighUsage,
+            'missing' => $missing,
+            'requires_reading' => true,
+        ];
+    }
+
+    public function roomWarnings(int $index): array
+    {
+        $room = $this->rooms[$index] ?? null;
+        if (! $room || ($room['skipped'] ?? false)) {
+            return [];
+        }
+
+        $warnings = [];
+
+        foreach (array_keys($room['utilities']) as $utilityIndex) {
+            $preview = $this->utilityPreview($index, (int) $utilityIndex);
+            if (($preview['requires_reading'] ?? true) && $preview['warning']) {
+                $warnings[] = $preview['warning'];
+            }
+            if (($preview['requires_reading'] ?? true) && $preview['missing']) {
+                $warnings[] = __('Missing reading');
+            }
+        }
+
+        return array_values(array_unique($warnings));
+    }
+
+    public function roomHasBlockingLowReadings(int $index): bool
+    {
+        $room = $this->rooms[$index] ?? null;
+        if (! $room || ($room['skipped'] ?? false)) {
+            return false;
+        }
+
+        foreach ($room['utilities'] as $utilityIndex => $utility) {
+            $preview = $this->utilityPreview($index, $utilityIndex);
+            if (($preview['requires_reading'] ?? true) && $preview['is_lower_reading'] && blank($utility['override_reason'] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function roomHasMissingReadings(int $index): bool
+    {
+        $room = $this->rooms[$index] ?? null;
+        if (! $room || ($room['skipped'] ?? false)) {
+            return false;
+        }
+
+        foreach ($room['utilities'] as $utilityIndex => $utility) {
+            if (($utility['requires_reading'] ?? true) && blank($utility['new_reading'] ?? null)) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    public function roomIsReady(int $index): bool
+    {
+        $room = $this->rooms[$index] ?? null;
+
+        return $room
+            && ! ($room['skipped'] ?? false)
+            && ! $this->roomHasMissingReadings($index)
+            && ! $this->roomHasBlockingLowReadings($index);
+    }
+
+    public function completeRoomCount(): int
+    {
+        return collect(array_keys($this->rooms))
+            ->filter(fn ($index) => $this->roomIsReady((int) $index))
+            ->count();
+    }
+
+    public function skippedRoomCount(): int
+    {
+        return collect($this->rooms)->filter(fn (array $room) => (bool) ($room['skipped'] ?? false))->count();
+    }
+
+    public function roomsWithWarningsCount(): int
+    {
+        return collect(array_keys($this->rooms))
+            ->filter(fn ($index) => $this->roomWarnings((int) $index) !== [])
+            ->count();
+    }
+
+    public function estimatedInvoiceCount(): int
+    {
+        return collect(array_keys($this->rooms))
+            ->filter(fn ($index) => $this->roomIsReady((int) $index))
+            ->count();
+    }
+
+    public function nextRoom(): void
+    {
+        if ($this->rooms === []) {
+            return;
+        }
+
+        if ($this->currentRoomIndex >= count($this->rooms) - 1) {
+            $this->goToReview();
+            return;
+        }
+
+        $this->currentRoomIndex++;
+    }
+
+    public function advanceFromReading(int $roomIndex, int $utilityIndex): void
+    {
+        if (! isset($this->rooms[$roomIndex]['utilities'][$utilityIndex])) {
+            $this->nextRoom();
+
+            return;
+        }
+
+        $nextIndex = null;
+        $utilities = $this->rooms[$roomIndex]['utilities'];
+
+        for ($i = $utilityIndex + 1; $i < count($utilities); $i++) {
+            if (! ($utilities[$i]['requires_reading'] ?? true) || blank($utilities[$i]['new_reading'] ?? null)) {
+                $nextIndex = $i;
+                break;
+            }
+        }
+
+        if ($nextIndex === null && $utilityIndex + 1 < count($utilities)) {
+            $nextIndex = $utilityIndex + 1;
+        }
+
+        if ($nextIndex !== null) {
+            $this->dispatch('focus-reading', ref: 'reading-'.$roomIndex.'-'.$nextIndex);
+
+            return;
+        }
+
+        $this->nextRoom();
+    }
+
+    public function previousRoom(): void
+    {
+        if ($this->reviewFocusIndex !== null) {
+            $this->returnToReview();
+
+            return;
+        }
+
+        if ($this->currentRoomIndex <= 0) {
+            $this->step = 'start';
+
+            return;
+        }
+
+        $this->currentRoomIndex--;
+    }
+
+    public function skipCurrentRoom(): void
+    {
+        if (! isset($this->rooms[$this->currentRoomIndex])) {
+            return;
+        }
+
+        $this->rooms[$this->currentRoomIndex]['skipped'] = true;
+        $this->rooms[$this->currentRoomIndex]['skip_reason'] = __('Skipped by user');
+        $this->nextRoom();
+    }
+
+    public function toggleRoomSkip(int $index): void
+    {
+        if (! isset($this->rooms[$index])) {
+            return;
+        }
+
+        $this->rooms[$index]['skipped'] = ! (bool) ($this->rooms[$index]['skipped'] ?? false);
+        if (! $this->rooms[$index]['skipped']) {
+            unset($this->rooms[$index]['skip_reason']);
+        }
+    }
+
+    public function editRoom(int $index): void
+    {
+        if (! isset($this->rooms[$index])) {
+            return;
+        }
+
+        $this->currentRoomIndex = $index;
+        $this->reviewFocusIndex = $index;
+        $this->step = 'reading';
+    }
+
+    public function returnToReview(): void
+    {
+        $this->step = 'review';
+    }
+
+    public function goToReview(): void
+    {
+        if ($this->rooms === []) {
+            return;
+        }
+
+        $blockingIndex = $this->firstBlockingRoomIndex();
+        if ($blockingIndex !== null) {
+            $this->currentRoomIndex = $blockingIndex;
+            $this->step = 'reading';
+            $this->reviewFocusIndex = $blockingIndex;
+
+            Notification::make()
+                ->warning()
+                ->title(__('Please finish or override the highlighted room before review.'))
+                ->send();
+
+            return;
+        }
+
+        $this->step = 'review';
+    }
+
+    public function openCreateConfirmation(): void
+    {
+        if ($this->rooms === []) {
+            return;
+        }
+
+        if ($this->firstBlockingRoomIndex() !== null) {
+            Notification::make()
+                ->warning()
+                ->title(__('Complete or skip the blocked rooms before creating invoices.'))
+                ->send();
+
+            return;
+        }
+
+        $this->showCreateConfirmation = true;
+    }
+
+    public function cancelCreateConfirmation(): void
+    {
+        $this->showCreateConfirmation = false;
+    }
+
+    public function createInvoices(): void
+    {
+        if ($this->creatingInvoices) {
+            return;
+        }
+
+        if ($this->getAccess() === SubscriptionAccess::ReadOnly) {
+            Notification::make()
+                ->title(__('Write actions are disabled until payment is completed.'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        if ($this->rooms === []) {
+            Notification::make()
+                ->title(__('No rooms are due for billing on this date.'))
+                ->warning()
+                ->send();
+
+            return;
+        }
+
+        if (($blockingIndex = $this->firstBlockingRoomIndex()) !== null) {
+            $this->currentRoomIndex = $blockingIndex;
+            $this->step = 'reading';
+            $this->showCreateConfirmation = false;
+
+            Notification::make()
+                ->warning()
+                ->title(__('Complete or skip the blocked rooms before creating invoices.'))
+                ->send();
+
+            return;
+        }
+
+        $this->creatingInvoices = true;
+        $this->showCreateConfirmation = false;
+
+        $builder = app(InvoiceBuilderService::class);
+        $issueDate = Carbon::parse($this->issueDate ?: now()->toDateString());
+        $created = 0;
+        $skipped = 0;
+        $failed = 0;
+        $invoiceIds = [];
+        $failures = [];
+
+        foreach ($this->rooms as $index => $room) {
+            if (($room['skipped'] ?? false) === true) {
+                $skipped++;
+                continue;
+            }
+
+            try {
+                $invoice = DB::transaction(function () use ($room, $builder, $issueDate) {
+                    $rental = Rental::withoutGlobalScopes()->with(['unit', 'property', 'tenant'])->findOrFail($room['rental_id']);
+                    $periodStart = Carbon::parse($room['period_start']);
+                    $periodEnd = Carbon::parse($room['period_end']);
+
+                    $existing = Invoice::withoutGlobalScopes()
+                        ->where('rental_id', $rental->id)
+                        ->whereDate('period_start', $periodStart->toDateString())
+                        ->whereDate('period_end', $periodEnd->toDateString())
+                        ->first();
+
+                    if ($existing) {
+                        return null;
+                    }
+
+                    $usages = [];
+
+                    foreach ($room['utilities'] as $utility) {
+                        $requiresReading = (bool) ($utility['requires_reading'] ?? true);
+                        $newReading = $this->parseNumber($utility['new_reading']);
+                        if ($requiresReading && $newReading === null) {
+                            continue;
+                        }
+
+                        $oldReading = $this->parseNumber($utility['old_reading']) ?? 0.0;
+                        $amountUsed = $requiresReading
+                            ? max(0, round($newReading - $oldReading, 3))
+                            : 0.0;
+
+                        $usages[] = UtilityUsage::updateOrCreate(
+                            [
+                                'unit_id' => $rental->unit_id,
+                                'rental_id' => $rental->id,
+                                'property_utility_id' => $utility['property_utility_id'],
+                                'reading_date' => $periodEnd->toDateString(),
+                            ],
+                            [
+                                'landlord_id' => $rental->landlord_id,
+                                'recorded_by_id' => auth()->id(),
+                                'reading_type' => ReadingType::Actual,
+                                'old_reading' => $oldReading,
+                                'new_reading' => $requiresReading ? $newReading : null,
+                                'amount_used' => $amountUsed,
+                                'is_waived' => false,
+                            ],
+                        );
+                    }
+
+                    $params = [
+                        'rental' => $rental,
+                        'period_start' => $periodStart,
+                        'period_end' => $periodEnd,
+                        'issue_date' => $issueDate,
+                        'include_rent' => true,
+                        'is_first_invoice' => (bool) ($room['is_first_invoice'] ?? false),
+                        'usages' => $usages,
+                    ];
+
+                    if ($dueDate = $this->determineDueDate($rental, $periodStart)) {
+                        $params['due_date'] = $dueDate;
+                    }
+
+                    $invoice = $builder->create($params);
+
+                    $shouldAdvanceSchedule = true;
+                    if ($this->manualMode) {
+                        $currentNextInvoiceDate = $rental->next_invoice_date;
+                        if ($currentNextInvoiceDate !== null) {
+                            $expectedStart = Carbon::parse($currentNextInvoiceDate);
+                            if ($periodStart->toDateString() !== $expectedStart->toDateString()) {
+                                $shouldAdvanceSchedule = false;
+                            }
+                        }
+                    }
+
+                    if ($shouldAdvanceSchedule) {
+                        $rental->withoutEvents(fn () => $rental->update([
+                            'next_invoice_date' => $periodEnd->copy()->addDay()->startOfMonth(),
+                        ]));
+                    }
+
+                    return $invoice;
+                });
+
+                if ($invoice === null) {
+                    $skipped++;
+                    continue;
+                }
+
+                $invoiceIds[] = $invoice->id;
+                $created++;
+            } catch (\Throwable $throwable) {
+                report($throwable);
+                $failed++;
+                $failures[] = [
+                    'room_number' => $room['room_number'] ?? __('Unknown room'),
+                    'message' => $throwable->getMessage(),
+                ];
+            }
+        }
+
+        $this->resultSummary = [
+            'created' => $created,
+            'skipped' => $skipped,
+            'failed' => $failed,
+            'invoice_ids' => $invoiceIds,
+            'failures' => $failures,
+        ];
+        $this->step = 'result';
+        $this->creatingInvoices = false;
+
+        Notification::make()
+            ->title(__('Billing complete'))
+            ->body(__(':created invoice(s) created', ['created' => $created]))
+            ->success()
+            ->send();
+    }
+
+    public function startAnotherProperty(): void
+    {
+        $this->resetToPropertyPicker();
+    }
+
+    public function viewInvoicesUrl(): string
+    {
+        return InvoiceResource::getUrl('index');
+    }
+
+    public function dashboardUrl(): string
+    {
+        return Filament::getUrl();
+    }
+
+    public function propertySettingsUrl(): string
+    {
+        return PropertySettings::getUrl();
+    }
+
+    public function getAccess(): SubscriptionAccess
+    {
+        return SubscriptionService::effectiveAccess(auth()->user());
+    }
+
+    protected function hydrateSelectedProperty(int $propertyId): void
+    {
+        $this->propertyId = $propertyId;
+        $this->issueDate = $this->suggestIssueDate($propertyId);
+        $this->step = 'start';
+        $this->rooms = [];
+        $this->currentRoomIndex = 0;
+        $this->reviewFocusIndex = null;
+        $this->showCreateConfirmation = false;
+        $this->resultSummary = [
+            'created' => 0,
+            'skipped' => 0,
+            'failed' => 0,
+            'invoice_ids' => [],
+            'failures' => [],
+        ];
+    }
+
+    protected function resetWizard(): void
+    {
+        $this->propertyId = null;
+        $this->issueDate = now()->toDateString();
+        $this->rooms = [];
+        $this->currentRoomIndex = 0;
+        $this->reviewFocusIndex = null;
+        $this->showCreateConfirmation = false;
+        $this->creatingInvoices = false;
+        $this->resultSummary = [
+            'created' => 0,
+            'skipped' => 0,
+            'failed' => 0,
+            'invoice_ids' => [],
+            'failures' => [],
+        ];
+    }
+
+    protected function isBillingEnabled(?int $propertyId): bool
     {
         if (! $propertyId) {
             return false;
         }
 
-        return (bool) \App\Models\PropertySetting::where('property_id', $propertyId)
-            ->value('monthly_billing_enabled');
+        return (bool) PropertySetting::where('property_id', $propertyId)->value('monthly_billing_enabled');
     }
 
-    // ─── Helpers ──────────────────────────────────────────────────────────
-
-    /**
-     * The earliest next_invoice_date among the property's active, due rentals —
-     * falls back to today when nothing is set.
-     */
     protected function suggestIssueDate(?int $propertyId): string
     {
         if (! $propertyId) {
@@ -165,350 +1018,298 @@ class MonthlyBilling extends Page implements HasForms
     }
 
     /**
-     * IDs of all active rentals for the current property that are due on or
-     * before the selected issue_date.
-     *
-     * A rental with no next_invoice_date has never been billed — it is always due.
+     * @return array<int>
      */
     protected function dueRentalIds(int $propertyId, Carbon $issueDate): array
     {
         return Rental::where('property_id', $propertyId)
             ->where('status', RentalStatus::Active->value)
-            ->where(function ($q) use ($issueDate) {
-                $q->whereNull('next_invoice_date')
-                  ->orWhereDate('next_invoice_date', '<=', $issueDate->toDateString());
+            ->where(function (Builder $query) use ($issueDate) {
+                $query->whereNull('next_invoice_date')
+                    ->orWhereDate('next_invoice_date', '<=', $issueDate->toDateString());
             })
             ->pluck('id')
+            ->map(fn ($id) => (int) $id)
             ->all();
     }
 
-    // ─── Form ─────────────────────────────────────────────────────────────
-
-    public function form(Form $form): Form
+    protected function dueRentalsQuery(int $propertyId, Carbon $issueDate): Builder
     {
-        return $form
-            ->schema([
-                // ── Header controls ───────────────────────────────────────
-                Forms\Components\Section::make(__('Billing run'))
-                    ->schema([
-                        // Property selector — hidden when a property is already active.
-                        Forms\Components\Select::make('property_id')
-                            ->label(__('Property'))
-                            ->options(fn () => Property::pluck('name', 'id'))
-                            ->searchable()
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(function () {
-                                $this->data['rows'] = [];
-                                $pid = $this->data['property_id'] ?? null;
-                                $this->billingEnabled = $this->isEnabledForProperty($pid ? (int) $pid : null);
-                                $this->data['issue_date'] = $this->suggestIssueDate($pid ? (int) $pid : null);
-                                $this->refreshRows();
-                            })
-                            ->hidden(fn () => \App\Support\ActiveProperty::id() !== null),
-
-                        Forms\Components\DatePicker::make('issue_date')
-                            ->label(__('Issue date'))
-                            ->default(now())
-                            ->required()
-                            ->live()
-                            ->afterStateUpdated(fn () => $this->refreshRows()),
-
-                        Forms\Components\Toggle::make('include_rent')
-                            ->label(__('Include monthly rent'))
-                            ->default(true)
-                            ->live(),
-                    ])
-                    ->columns(3),
-
-                // ── Due-room readings — auto-loaded, no selection needed ──
-                Forms\Components\Repeater::make('rows')
-                    ->label(__('Rooms due for billing'))
-                    ->schema([
-                        Forms\Components\Hidden::make('rental_id'),
-                        Forms\Components\Hidden::make('period_start'),
-                        Forms\Components\Hidden::make('period_end'),
-                        Forms\Components\Hidden::make('label'),
-                        Forms\Components\Hidden::make('period_display'),
-                        Forms\Components\Hidden::make('is_first_invoice'),
-
-                        Forms\Components\Placeholder::make('room_label')
-                            ->label(__('Room / Occupant'))
-                            ->content(fn (Get $get) => $get('label'))
-                            ->columnSpan(2),
-
-                        Forms\Components\Placeholder::make('billing_period')
-                            ->label(__('Billing Period'))
-                            ->content(fn (Get $get) => $get('period_display') ?: '—')
-                            ->columnSpan(2),
-
-                        Forms\Components\TextInput::make('rent')
-                            ->numeric()
-                            ->prefix('$')
-                            ->label(__('Rent'))
-                            ->visible(fn (Get $get) => (bool) ($this->data['include_rent'] ?? true))
-                            ->columnSpan(2),
-
-                        Forms\Components\Repeater::make('readings')
-                            ->label(__('Meter readings'))
-                            ->columnSpanFull()
-                            ->schema([
-                                Forms\Components\Hidden::make('property_utility_id'),
-                                Forms\Components\Hidden::make('utility_name'),
-                                Forms\Components\Hidden::make('old_reading'),
-                                Forms\Components\Placeholder::make('meter')
-                                    ->label(__('Utility'))
-                                    ->content(fn (Get $get) => $get('utility_name')),
-                                Forms\Components\Placeholder::make('prev')
-                                    ->label(__('Previous reading'))
-                                    ->content(fn (Get $get) => $get('old_reading') ?? '—'),
-                                Forms\Components\TextInput::make('new_reading')
-                                    ->label(__('New reading'))
-                                    ->numeric()
-                                    ->placeholder(__('Enter value')),
-                            ])
-                            ->columns(3)
-                            ->addable(false)
-                            ->deletable(false)
-                            ->reorderable(false),
-                    ])
-                    ->columns(4)
-                    ->addable(false)
-                    ->deletable(false)
-                    ->reorderable(false)
-                    ->visible(fn (Get $get) => filled($get('rows'))),
-            ])
-            ->statePath('data');
+        return Rental::whereIn('id', $this->dueRentalIds($propertyId, $issueDate))
+            ->where('status', RentalStatus::Active->value)
+            ->with(['unit', 'tenant']);
     }
 
-    // ─── Data loader ──────────────────────────────────────────────────────
-
-    /**
-     * Build the rows array from all rentals that are due on or before issue_date.
-     * Called on mount and whenever property_id or issue_date changes.
-     */
-    public function refreshRows(): void
+    protected function loadRooms(): void
     {
-        $propertyId = $this->data['property_id'] ?? \App\Support\ActiveProperty::id();
-
-        if (! $propertyId || ! $this->billingEnabled) {
-            $this->data['rows'] = [];
-
+        if (! $this->propertyId || ! $this->billingEnabled()) {
+            $this->rooms = [];
             return;
         }
 
-        $issueDate = isset($this->data['issue_date'])
-            ? Carbon::parse($this->data['issue_date'])
-            : now();
+        $issueDate = Carbon::parse($this->issueDate ?: now()->toDateString());
+        $utilities = $this->activeUtilities();
+        $propertySetting = PropertySetting::where('property_id', $this->propertyId)->first();
 
-        $dueIds = $this->dueRentalIds((int) $propertyId, $issueDate);
-
-        if (empty($dueIds)) {
-            $this->data['rows'] = [];
-
-            return;
+        if ($this->manualMode) {
+            $rentals = Rental::whereIn('id', $this->selectedRentalIds)
+                ->where('property_id', $this->propertyId)
+                ->where('status', RentalStatus::Active->value)
+                ->with(['unit', 'tenant'])
+                ->get();
+        } else {
+            $rentals = $this->dueRentalsQuery($this->propertyId, $issueDate)->get();
         }
 
-        $utilities = PropertyUtility::where('property_id', $propertyId)
-            ->whereIn('billing_type', [BillingType::Metered->value, BillingType::Shared->value])
-            ->where('is_active', true)
-            ->orderBy('name')
-            ->get();
+        $rooms = [];
 
-        $rentals = Rental::whereIn('id', $dueIds)
-            ->where('status', RentalStatus::Active->value)
-            ->with(['unit', 'tenant'])
-            ->get();
-
-        $propertySetting = PropertySetting::where('property_id', $propertyId)->first();
-
-        $rows = [];
         foreach ($rentals as $rental) {
-            $readings = [];
-            foreach ($utilities as $utility) {
-                $old = UtilityUsage::where('unit_id', $rental->unit_id)
-                    ->where('property_utility_id', $utility->id)
-                    ->orderByDesc('reading_date')
-                    ->orderByDesc('id')
-                    ->value('new_reading');
-
-                $readings[] = [
-                    'property_utility_id' => $utility->id,
-                    'utility_name'        => $utility->name,
-                    'old_reading'         => (string) ($old ?? 0),
-                    'new_reading'         => null,
-                ];
+            $room = $this->buildRoomState($rental, $utilities, $propertySetting, $issueDate);
+            if ($room !== null) {
+                $rooms[] = $room;
             }
+        }
 
-            $latestInvoice  = Invoice::where('rental_id', $rental->id)->orderByDesc('period_end')->first();
-            $isFirstInvoice = $latestInvoice === null;
+        usort($rooms, function (array $left, array $right): int {
+            $leftNumber = Str::lower((string) ($left['room_number'] ?? ''));
+            $rightNumber = Str::lower((string) ($right['room_number'] ?? ''));
 
-            $periodStart = $isFirstInvoice
-                ? Carbon::parse($rental->start_date)
-                : Carbon::parse($latestInvoice->period_end)->addDay();
+            return strnatcasecmp($leftNumber, $rightNumber);
+        });
 
-            $periodEnd = $issueDate->copy();
-            if ($rental->end_date && $periodEnd->isAfter($rental->end_date)) {
-                $periodEnd = Carbon::parse($rental->end_date);
+        $this->rooms = array_values($rooms);
+    }
+
+    protected function buildRoomState(Rental $rental, Collection $utilities, ?PropertySetting $propertySetting, Carbon $issueDate): ?array
+    {
+        $latestInvoice = Invoice::where('rental_id', $rental->id)->orderByDesc('period_end')->first();
+        $isFirstInvoice = $latestInvoice === null;
+
+        $periodStart = $isFirstInvoice
+            ? Carbon::parse($rental->start_date)
+            : Carbon::parse($latestInvoice->period_end)->addDay();
+
+        $periodEnd = $issueDate->copy();
+        if ($rental->end_date && $periodEnd->isAfter($rental->end_date)) {
+            $periodEnd = Carbon::parse($rental->end_date);
+        }
+
+        if ($periodStart->isAfter($periodEnd)) {
+            if (! $this->manualMode) {
+                return null;
             }
-
-            if ($periodStart->isAfter($periodEnd)) {
-                continue; // already billed — skip silently
-            }
-
-            $rentAmount = $isFirstInvoice
+            $rent = 0.0;
+        } else {
+            $rent = $isFirstInvoice
                 ? ProratingService::compute($propertySetting, (float) $rental->monthly_rent, $periodStart, $periodEnd)
                 : (float) $rental->monthly_rent;
+        }
 
-            $depositHint = '';
-            if ($isFirstInvoice) {
-                $depositAmount = ProratingService::depositAmount($propertySetting, (float) $rental->monthly_rent);
-                if ($depositAmount > 0) {
-                    $depositHint = ' + $' . number_format($depositAmount, 2) . ' deposit';
-                }
-            }
+        $readings = [];
+        foreach ($utilities as $utility) {
+            $latestUsage = UtilityUsage::where('unit_id', $rental->unit_id)
+                ->where('property_utility_id', $utility->id)
+                ->orderByDesc('reading_date')
+                ->orderByDesc('id')
+                ->first();
 
-            $rows[] = [
-                'rental_id'        => $rental->id,
-                'is_first_invoice' => $isFirstInvoice,
-                'label'            => ($rental->unit?->room_number ?? 'Room')
-                    . ' — '
-                    . ($rental->occupant_name ?: ($rental->tenant?->name ?? __('tenant')))
-                    . ($isFirstInvoice ? ' [First invoice' . $depositHint . ']' : ''),
-                'rent'             => (string) $rentAmount,
-                'readings'         => $readings,
-                'period_start'     => $periodStart->toDateString(),
-                'period_end'       => $periodEnd->toDateString(),
-                'period_display'   => $periodStart->format('d M Y') . ' — ' . $periodEnd->format('d M Y'),
+            $readings[] = [
+                'property_utility_id' => $utility->id,
+                'utility_name' => $this->utilityLabel($utility->name),
+                'billing_type' => $utility->billing_type->value,
+                'rate' => (float) $utility->rate,
+                'unit_of_measure' => $utility->unit_of_measure,
+                'requires_reading' => $utility->requiresReading(),
+                'previous_usage' => (float) ($latestUsage?->amount_used ?? 0),
+                'old_reading' => (string) ($latestUsage?->new_reading ?? 0),
+                'new_reading' => null,
+                'override_reason' => null,
             ];
         }
 
-        $this->data['rows'] = $rows;
+        return [
+            'rental_id' => $rental->id,
+            'unit_id' => $rental->unit_id,
+            'room_number' => $rental->unit?->room_number ?? '—',
+            'occupant_name' => $rental->occupant_name ?: ($rental->tenant?->name ?? __('Tenant')),
+            'period_start' => $periodStart->toDateString(),
+            'period_end' => $periodEnd->toDateString(),
+            'period_display' => $periodStart->format('d M Y').' — '.$periodEnd->format('d M Y'),
+            'rent' => round($rent, 2),
+            'is_first_invoice' => $isFirstInvoice,
+            'skipped' => false,
+            'skip_reason' => null,
+            'utilities' => $readings,
+        ];
     }
 
-    // ─── Generate ─────────────────────────────────────────────────────────
-
-    public function generate(): void
+    protected function previewCharge(array $utility, float $amountUsed): float
     {
-        if ($this->getAccess() === SubscriptionAccess::ReadOnly) {
-            Notification::make()
-                ->title(__('Write actions are disabled until payment is completed.'))
-                ->warning()
-                ->send();
+        $propertyUtility = PropertyUtility::find($utility['property_utility_id']);
+        if (! $propertyUtility) {
+            return 0.0;
+        }
 
+        $usage = new UtilityUsage([
+            'amount_used' => $amountUsed,
+            'is_waived' => false,
+        ]);
+        $usage->setRelation('propertyUtility', $propertyUtility);
+
+        return (float) UtilityBillingService::resolveCharge($usage)['amount'];
+    }
+
+    protected function parseNumber(mixed $value): ?float
+    {
+        if ($value === null || $value === '') {
+            return null;
+        }
+
+        if (! is_numeric($value)) {
+            return null;
+        }
+
+        return (float) $value;
+    }
+
+    protected function formatQuantity(float $value): string
+    {
+        if (abs($value - round($value)) < 0.0001) {
+            return number_format($value, 0);
+        }
+
+        return number_format($value, 3, '.', '');
+    }
+
+    protected function determineDueDate(Rental $rental, Carbon $periodStart): ?Carbon
+    {
+        if (! $rental->unit?->due_date) {
+            return null;
+        }
+
+        $dueDay = Carbon::parse($rental->unit->due_date)->day;
+        $dueDate = $periodStart->copy()->day($dueDay);
+
+        if ($dueDate->isBefore($periodStart)) {
+            $dueDate->addMonth();
+        }
+
+        return $dueDate;
+    }
+
+    protected function firstBlockingRoomIndex(): ?int
+    {
+        foreach (array_keys($this->rooms) as $index) {
+            if ($this->rooms[$index]['skipped'] ?? false) {
+                continue;
+            }
+            if ($this->roomHasMissingReadings((int) $index) || 
+                $this->roomHasBlockingLowReadings((int) $index) ||
+                $this->roomHasInvalidPeriodOrDuplicate((int) $index)) {
+                return (int) $index;
+            }
+        }
+
+        return null;
+    }
+
+    public function activeRentals(): Collection
+    {
+        if (! $this->propertyId) {
+            return collect();
+        }
+
+        return Rental::where('property_id', $this->propertyId)
+            ->where('status', RentalStatus::Active->value)
+            ->with(['unit', 'tenant'])
+            ->get()
+            ->sortBy(fn ($r) => Str::lower($r->unit?->room_number ?? ''));
+    }
+
+    public function toggleSelectAllRentals(): void
+    {
+        $allIds = $this->activeRentals()->pluck('id')->all();
+        if (count($this->selectedRentalIds) === count($allIds)) {
+            $this->selectedRentalIds = [];
+        } else {
+            $this->selectedRentalIds = $allIds;
+        }
+    }
+
+    public function hasDuplicateInvoice(int $roomIndex): bool
+    {
+        $room = $this->rooms[$roomIndex] ?? null;
+        if (! $room) {
+            return false;
+        }
+
+        return Invoice::withoutGlobalScopes()
+            ->where('rental_id', $room['rental_id'])
+            ->whereDate('period_start', $room['period_start'])
+            ->whereDate('period_end', $room['period_end'])
+            ->exists();
+    }
+
+    public function roomHasInvalidPeriodOrDuplicate(int $index): bool
+    {
+        $room = $this->rooms[$index] ?? null;
+        if (! $room) {
+            return false;
+        }
+
+        if ($room['skipped'] ?? false) {
+            return false;
+        }
+
+        $periodStart = Carbon::parse($room['period_start']);
+        $periodEnd = Carbon::parse($room['period_end']);
+
+        if ($periodStart->isAfter($periodEnd)) {
+            return true;
+        }
+
+        if ($this->hasDuplicateInvoice($index)) {
+            return true;
+        }
+
+        return false;
+    }
+
+    public function updatedRooms($value, $key): void
+    {
+        if (str_contains($key, 'period_start') || str_contains($key, 'period_end')) {
+            $parts = explode('.', $key);
+            $roomIndex = (int) $parts[0];
+            $this->recalculateRoomRent($roomIndex);
+        }
+    }
+
+    protected function recalculateRoomRent(int $roomIndex): void
+    {
+        if (! isset($this->rooms[$roomIndex])) {
             return;
         }
 
-        $rows = $this->data['rows'] ?? [];
-
-        if (empty($rows)) {
-            Notification::make()
-                ->title(__('No rooms due for billing on this date.'))
-                ->warning()
-                ->send();
-
+        $room = &$this->rooms[$roomIndex];
+        $rental = Rental::withoutGlobalScopes()->find($room['rental_id']);
+        if (! $rental) {
             return;
         }
 
-        $issueDate   = Carbon::parse($this->data['issue_date']);
-        $includeRent = (bool) ($this->data['include_rent'] ?? true);
-        $builder     = app(InvoiceBuilderService::class);
-        $created     = 0;
-        $skipped     = 0;
+        $periodStart = Carbon::parse($room['period_start']);
+        $periodEnd = Carbon::parse($room['period_end']);
 
-        foreach ($rows as $row) {
-            $rental = Rental::find($row['rental_id'] ?? null);
-            if (! $rental) {
-                continue;
-            }
-
-            $periodStart = Carbon::parse($row['period_start']);
-            $periodEnd   = Carbon::parse($row['period_end']);
-
-            $already = Invoice::where('rental_id', $rental->id)
-                ->whereDate('period_start', $periodStart->toDateString())
-                ->exists();
-
-            if ($already) {
-                $skipped++;
-
-                continue;
-            }
-
-            if ($rental->unit?->due_date) {
-                $dueDay  = Carbon::parse($rental->unit->due_date)->day;
-                $dueDate = $periodStart->copy()->day($dueDay);
-                if ($dueDate->isBefore($periodStart)) {
-                    $dueDate->addMonth();
-                }
-            } else {
-                $dueDate = null;
-            }
-
-            $usages = [];
-            foreach ($row['readings'] ?? [] as $reading) {
-                if (! isset($reading['new_reading']) || $reading['new_reading'] === '' || $reading['new_reading'] === null) {
-                    continue;
-                }
-
-                $old      = (float) ($reading['old_reading'] ?? 0);
-                $new      = (float) $reading['new_reading'];
-                $usages[] = UtilityUsage::create([
-                    'property_utility_id' => $reading['property_utility_id'],
-                    'unit_id'             => $rental->unit_id,
-                    'rental_id'           => $rental->id,
-                    'landlord_id'         => $rental->landlord_id,
-                    'recorded_by_id'      => auth()->id(),
-                    'reading_type'        => ReadingType::Actual,
-                    'reading_date'        => $periodEnd,
-                    'old_reading'         => $old,
-                    'new_reading'         => $new,
-                    'amount_used'         => max(0, $new - $old),
-                ]);
-            }
-
-            $rental->monthly_rent = (float) ($row['rent'] ?? $rental->monthly_rent);
-
-            $builderParams = [
-                'rental'           => $rental,
-                'period_start'     => $periodStart,
-                'period_end'       => $periodEnd,
-                'issue_date'       => $issueDate,
-                'include_rent'     => $includeRent,
-                'is_first_invoice' => (bool) ($row['is_first_invoice'] ?? false),
-                'usages'           => $usages,
-            ];
-
-            if ($dueDate) {
-                $builderParams['due_date'] = $dueDate;
-            }
-
-            $builder->create($builderParams);
-
-            // Roll next_invoice_date forward so the next run pre-fills the right date.
-            $rental->withoutEvents(fn () => $rental->update([
-                'next_invoice_date' => $periodEnd->copy()->addDay()->startOfMonth(),
-            ]));
-
-            $created++;
+        if ($periodStart->isAfter($periodEnd)) {
+            $room['rent'] = 0.0;
+            return;
         }
 
-        Notification::make()
-            ->title(__('Billing complete'))
-            ->body(
-                __(':created invoice(s) generated', ['created' => $created])
-                . ($skipped ? ' · ' . __(':skipped already billed', ['skipped' => $skipped]) : '')
-            )
-            ->success()
-            ->send();
+        $propertySetting = PropertySetting::where('property_id', $this->propertyId)->first();
+        
+        $rent = $room['is_first_invoice']
+            ? ProratingService::compute($propertySetting, (float) $rental->monthly_rent, $periodStart, $periodEnd)
+            : (float) $rental->monthly_rent;
 
-        // Reload — the rows will be empty if everything was billed.
-        $this->data['rows'] = [];
-        $this->refreshRows();
-    }
-
-    public function getAccess(): SubscriptionAccess
-    {
-        return SubscriptionService::effectiveAccess(auth()->user());
+        $room['rent'] = round($rent, 2);
     }
 }

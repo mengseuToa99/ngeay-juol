@@ -5,7 +5,10 @@ namespace App\Filament\Pages;
 use App\Enums\FirstMonthBillingMode;
 use App\Models\PropertySetting;
 use App\Support\ActiveProperty;
+use App\Support\Money;
+use App\Services\ExchangeRateService;
 use App\Services\SubscriptionService;
+use Carbon\Carbon;
 use Filament\Forms;
 use Filament\Forms\Concerns\InteractsWithForms;
 use Filament\Forms\Contracts\HasForms;
@@ -13,6 +16,7 @@ use Filament\Forms\Form;
 use Filament\Forms\Get;
 use Filament\Notifications\Notification;
 use Filament\Pages\Page;
+use Throwable;
 
 /**
  * Per-property billing/lease configuration as a first-class sidebar page, scoped
@@ -58,7 +62,8 @@ class PropertySettings extends Page implements HasForms
     /** Only visible / reachable once a property is selected. */
     public static function shouldRegisterNavigation(): bool
     {
-        return ActiveProperty::id() !== null;
+        return ! \App\Support\SimpleLandlordMode::enabledFor(auth()->user())
+            && ActiveProperty::id() !== null;
     }
 
     public static function canAccess(): bool
@@ -95,7 +100,6 @@ class PropertySettings extends Page implements HasForms
                     ->description(__('Per-property defaults — never shared with your other properties.'))
                     ->icon('heroicon-o-banknotes')
                     ->schema([
-                        // ── Feature flag ──────────────────────────────────────────
                         Forms\Components\Toggle::make('monthly_billing_enabled')
                             ->label(__('Enable Monthly Billing'))
                             ->helperText(__('When ON, the Monthly Billing page auto-loads all due rooms so you can enter meter readings and generate invoices in one click. Turn this off to hide the feature for this property.'))
@@ -103,16 +107,80 @@ class PropertySettings extends Page implements HasForms
                             ->inline(false)
                             ->columnSpanFull(),
 
-                        Forms\Components\TextInput::make('currency')->default('USD')->maxLength(8),
-                        Forms\Components\TextInput::make('invoice_prefix')->placeholder('e.g. RIV'),
+                        Forms\Components\Select::make('currency')
+                            ->label(__('Currency'))
+                            ->options(static::currencyOptions())
+                            ->default('USD')
+                            ->required()
+                            ->live()
+                            ->selectablePlaceholder(false)
+                            ->helperText(__('This controls the money symbol for this property. It does not convert existing prices.')),
+
+                        Forms\Components\TextInput::make('invoice_prefix')
+                            ->label(__('Invoice prefix'))
+                            ->placeholder(__('e.g. RIV')),
+
+                        Forms\Components\TextInput::make('usd_khr_exchange_rate')
+                            ->label(__('USD to KHR exchange rate'))
+                            ->numeric()
+                            ->minValue(1)
+                            ->step('0.0001')
+                            ->prefix(__('1 USD ='))
+                            ->suffix('KHR')
+                            ->visible(fn (Get $get): bool => $get('currency') === 'KHR')
+                            ->dehydrated(fn (Get $get): bool => $get('currency') === 'KHR')
+                            ->helperText(__('Fetch from NBC or enter the rate you want to use for this property.')),
+
+                        Forms\Components\DatePicker::make('exchange_rate_date')
+                            ->label(__('Exchange rate date'))
+                            ->visible(fn (Get $get): bool => $get('currency') === 'KHR')
+                            ->dehydrated(fn (Get $get): bool => $get('currency') === 'KHR'),
+
+                        Forms\Components\Hidden::make('exchange_rate_source'),
+                        Forms\Components\Hidden::make('exchange_rate_fetched_at'),
+
+                        Forms\Components\Placeholder::make('exchange_rate_status')
+                            ->label(__('Saved exchange rate'))
+                            ->content(function (Get $get): string {
+                                $rate = $get('usd_khr_exchange_rate');
+                                $date = $get('exchange_rate_date');
+
+                                if (blank($rate) || blank($date)) {
+                                    return __('No exchange rate saved yet.');
+                                }
+
+                                return __('1 USD = :rate KHR (:date)', [
+                                    'rate' => number_format((float) $rate, 2),
+                                    'date' => Carbon::parse($date)->toDateString(),
+                                ]);
+                            })
+                            ->visible(fn (Get $get): bool => $get('currency') === 'KHR'),
+
+                        Forms\Components\Actions::make([
+                            Forms\Components\Actions\Action::make('fetchUsdKhrExchangeRate')
+                                ->label(__('Fetch today\'s exchange rate'))
+                                ->icon('heroicon-o-arrow-path')
+                                ->color('gray')
+                                ->action(fn () => $this->fetchUsdKhrExchangeRate()),
+                        ])
+                            ->visible(fn (Get $get): bool => $get('currency') === 'KHR')
+                            ->columnSpanFull(),
+
                         Forms\Components\TextInput::make('due_day_of_month')
+                            ->label(__('Due day of month'))
                             ->numeric()->minValue(1)->maxValue(28)->default(7),
                         Forms\Components\TextInput::make('invoice_due_days')
                             ->label(__('Invoice Due Duration (Days)'))
                             ->helperText(__('Number of days after the issue date before the invoice becomes overdue.'))
                             ->numeric()->minValue(1)->default(7),
-                        Forms\Components\TextInput::make('late_fee')->numeric()->prefix('$')->default(0),
-                        Forms\Components\TextInput::make('water_billing_default')->placeholder('e.g. metered / flat'),
+                        Forms\Components\TextInput::make('late_fee')
+                            ->label(__('Late fee'))
+                            ->numeric()
+                            ->prefix(fn (Get $get): string => static::currencySymbol($get('currency')))
+                            ->default(0),
+                        Forms\Components\TextInput::make('water_billing_default')
+                            ->label(__('Default water billing'))
+                            ->placeholder(__('e.g. metered / flat')),
                     ])->columns(2),
 
                 // ── Move-in billing rules ──────────────────────────────────────
@@ -175,19 +243,106 @@ class PropertySettings extends Page implements HasForms
                     ->schema([
                         Forms\Components\TextInput::make('default_lease_months')
                             ->numeric()->label(__('Default lease (months)')),
-                        Forms\Components\TextInput::make('deposit_policy')->placeholder('e.g. 1 month'),
+                        Forms\Components\TextInput::make('deposit_policy')
+                            ->label(__('Deposit policy'))
+                            ->placeholder(__('e.g. 1 month')),
                     ])->columns(2),
 
                 Forms\Components\Section::make(__('Contacts & property info'))
                     ->icon('heroicon-o-user-circle')
                     ->schema([
-                        Forms\Components\TextInput::make('caretaker_name'),
-                        Forms\Components\TextInput::make('caretaker_phone')->tel(),
-                        Forms\Components\Textarea::make('parking_info')->columnSpanFull(),
-                        Forms\Components\Textarea::make('insurance_info')->columnSpanFull(),
+                        Forms\Components\TextInput::make('caretaker_name')
+                            ->label(__('Caretaker name')),
+                        Forms\Components\TextInput::make('caretaker_phone')
+                            ->label(__('Caretaker phone'))
+                            ->tel(),
+                        Forms\Components\Textarea::make('parking_info')
+                            ->label(__('Parking info'))
+                            ->columnSpanFull(),
+                        Forms\Components\Textarea::make('insurance_info')
+                            ->label(__('Insurance info'))
+                            ->columnSpanFull(),
                     ])->columns(2),
             ])
             ->statePath('data');
+    }
+
+    protected static function currencyOptions(): array
+    {
+        return [
+            'USD' => __('USD - US Dollar ($)'),
+            'KHR' => __('KHR - Khmer Riel (៛)'),
+        ];
+    }
+
+    protected static function currencySymbol(?string $currency): string
+    {
+        return Money::symbol($currency);
+    }
+
+    public function fetchUsdKhrExchangeRate(): void
+    {
+        abort_unless($this->setting !== null, 403);
+
+        if (! SubscriptionService::canMutate(auth()->user())) {
+            Notification::make()
+                ->danger()
+                ->title(__('Write actions are disabled until payment is completed.'))
+                ->send();
+
+            return;
+        }
+
+        $state = $this->data ?? [];
+
+        if (($state['currency'] ?? 'USD') !== 'KHR') {
+            Notification::make()
+                ->warning()
+                ->title(__('Select Khmer riel before fetching the exchange rate.'))
+                ->send();
+
+            return;
+        }
+
+        try {
+            $exchangeRate = app(ExchangeRateService::class)->fetchUsdToKhr();
+        } catch (Throwable $exception) {
+            Notification::make()
+                ->danger()
+                ->title(__('Could not fetch exchange rate'))
+                ->body(__('Please try again. If it keeps failing, enter the rate manually.'))
+                ->send();
+
+            return;
+        }
+
+        $payload = [
+            'currency' => 'KHR',
+            'usd_khr_exchange_rate' => number_format((float) $exchangeRate['rate'], 4, '.', ''),
+            'exchange_rate_date' => $exchangeRate['date'],
+            'exchange_rate_source' => $exchangeRate['source'],
+            'exchange_rate_fetched_at' => now(),
+        ];
+
+        $this->setting->update($payload);
+        $this->setting->refresh();
+
+        $this->form->fill(array_replace($state, [
+            'currency' => 'KHR',
+            'usd_khr_exchange_rate' => $payload['usd_khr_exchange_rate'],
+            'exchange_rate_date' => $payload['exchange_rate_date'],
+            'exchange_rate_source' => $payload['exchange_rate_source'],
+            'exchange_rate_fetched_at' => $payload['exchange_rate_fetched_at']->toDateTimeString(),
+        ]));
+
+        Notification::make()
+            ->success()
+            ->title(__('Exchange rate saved'))
+            ->body(__('Saved :rate KHR per 1 USD from :source.', [
+                'rate' => number_format((float) $exchangeRate['rate'], 2),
+                'source' => $exchangeRate['source'],
+            ]))
+            ->send();
     }
 
     public function save(): void

@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\InvoiceResource\RelationManagers;
 
 use App\Enums\PaymentMethod;
+use App\Models\Payment;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -24,7 +26,7 @@ class PaymentsRelationManager extends RelationManager
     {
         return $form->schema([
             Forms\Components\Hidden::make('recorded_by_id')->default(fn () => auth()->id()),
-            Forms\Components\TextInput::make('amount')->numeric()->prefix('$')->required(),
+            Forms\Components\TextInput::make('amount')->numeric()->prefix(fn () => Money::activeSymbol())->required(),
             Forms\Components\DateTimePicker::make('paid_at')->default(now())->required(),
             Forms\Components\Select::make('method')->options(PaymentMethod::class)->default(PaymentMethod::Cash)->required(),
             Forms\Components\TextInput::make('transaction_ref'),
@@ -39,7 +41,8 @@ class PaymentsRelationManager extends RelationManager
             ->recordTitleAttribute('receipt_number')
             ->columns([
                 Tables\Columns\TextColumn::make('paid_at')->dateTime()->sortable(),
-                Tables\Columns\TextColumn::make('amount')->money('USD'),
+                Tables\Columns\TextColumn::make('amount')
+                    ->formatStateUsing(fn ($state, Payment $record) => Money::formatForRecord($state, $record)),
                 Tables\Columns\TextColumn::make('method')->badge(),
                 Tables\Columns\TextColumn::make('recordedBy.name')->label(__('Recorded by')),
                 Tables\Columns\TextColumn::make('receipt_number')->placeholder('—'),

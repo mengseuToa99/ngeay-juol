@@ -29,7 +29,7 @@ class TenantPortalController extends Controller
             ->first();
 
         $invoices = Invoice::withoutGlobalScopes()
-            ->where('tenant_id', $user->getKey())
+            ->whereIn('rental_id', $this->tenantPortalRentalIds())
             ->orderByDesc('issue_date')
             ->get();
 
@@ -43,9 +43,9 @@ class TenantPortalController extends Controller
         }
 
         // A tenant may only view their own room's invoices.
-        abort_unless((int) $invoice->tenant_id === (int) Auth::id(), 403);
+        abort_unless(in_array((int) $invoice->rental_id, $this->tenantPortalRentalIds(), true), 403);
 
-        $invoice->load(['lines', 'payments.recordedBy', 'rental.unit.property']);
+        $invoice->loadMissing(['lines.utilityUsage.propertyUtility', 'payments.recordedBy', 'rental.unit.property', 'tenant', 'property']);
 
         return view('portal.invoice', compact('invoice'));
     }
@@ -173,5 +173,10 @@ class TenantPortalController extends Controller
             ->where('account_user_id', Auth::id())
             ->orWhereHas('activeRental', fn ($query) => $query->where('tenant_id', Auth::id()))
             ->first();
+    }
+
+    protected function tenantPortalRentalIds(): array
+    {
+        return Auth::user()?->tenantPortalRentalIds() ?? [];
     }
 }

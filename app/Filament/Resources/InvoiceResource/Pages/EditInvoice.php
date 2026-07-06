@@ -69,6 +69,7 @@ class EditInvoice extends EditRecord
                     'rate' => (string) ($util?->rate ?? $line->unit_price),
                     'billing_type' => $util?->billing_type->value ?? BillingType::Metered->value,
                     'unit_of_measure' => $util?->unit_of_measure,
+                    'requires_reading' => $util?->requiresReading() ?? true,
                     'is_waived' => (bool) $line->is_waived,
                     'old_reading' => (string) ($usage?->old_reading ?? 0),
                     'new_reading' => $usage?->new_reading !== null ? (string) $usage->new_reading : null,
@@ -125,14 +126,17 @@ class EditInvoice extends EditRecord
                     continue;
                 }
 
+                $requiresReading = (bool) ($row['requires_reading'] ?? true);
                 $hasReading = isset($row['new_reading']) && $row['new_reading'] !== '' && $row['new_reading'] !== null;
                 $old = (float) ($row['old_reading'] ?? $usage->old_reading);
-                $new = $hasReading ? (float) $row['new_reading'] : $old;
+                $new = $requiresReading
+                    ? ($hasReading ? (float) $row['new_reading'] : $old)
+                    : null;
 
                 $usage->update([
                     'old_reading' => $old,
                     'new_reading' => $new,
-                    'amount_used' => max(0, $new - $old),
+                    'amount_used' => $requiresReading ? max(0, $new - $old) : 0.0,
                 ]);
 
                 $charge = UtilityBillingService::resolveCharge($usage->fresh('propertyUtility'));

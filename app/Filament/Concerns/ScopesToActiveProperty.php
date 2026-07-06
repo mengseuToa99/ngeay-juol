@@ -3,6 +3,7 @@
 namespace App\Filament\Concerns;
 
 use App\Support\ActiveProperty;
+use App\Support\SimpleLandlordMode;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
@@ -54,6 +55,10 @@ trait ScopesToActiveProperty
 
     public static function shouldRegisterNavigation(): bool
     {
+        if (SimpleLandlordMode::enabledFor(auth()->user())) {
+            return false;
+        }
+
         return ActiveProperty::id() !== null
             || (bool) auth()->user()?->isPlatformStaff();
     }

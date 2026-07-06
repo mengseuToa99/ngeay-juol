@@ -193,7 +193,8 @@ class ConsumptionHistory extends Page implements HasForms
 
     public static function shouldRegisterNavigation(): bool
     {
-        return static::canAccess()
+        return ! \App\Support\SimpleLandlordMode::enabledFor(auth()->user())
+            && static::canAccess()
             && (ActiveProperty::id() !== null || (bool) auth()->user()?->isPlatformStaff());
     }
 

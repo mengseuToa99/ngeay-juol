@@ -1,6 +1,7 @@
 @extends('portal.layout')
 
 @php
+    use App\Support\Money;
     $badge = fn ($status) => match ($status) {
         \App\Enums\InvoiceStatus::Paid => 'bg-green-100 text-green-700',
         \App\Enums\InvoiceStatus::Partial => 'bg-blue-100 text-blue-700',
@@ -40,6 +41,7 @@
     <h2 class="mt-6 text-sm font-semibold uppercase tracking-wide text-slate-500">{{ __('Invoices') }}</h2>
 
     @forelse ($invoices as $invoice)
+        @php($money = fn ($value) => Money::formatForRecord($value, $invoice))
         <a href="{{ route('portal.invoice', $invoice) }}"
            class="mt-3 flex items-center justify-between rounded-xl bg-white p-4 shadow transition hover:shadow-md">
             <div>
@@ -50,9 +52,9 @@
                 <p class="mt-1 text-xs text-slate-400">{{ __('Due') }} {{ $invoice->due_date?->format('d M Y') }}</p>
             </div>
             <div class="text-right">
-                <p class="text-lg font-bold text-slate-900">${{ number_format((float) $invoice->amount_due, 2) }}</p>
+                <p class="text-lg font-bold text-slate-900">{{ $money($invoice->amount_due) }}</p>
                 @if ((float) $invoice->balance > 0)
-                    <p class="text-xs text-slate-500">{{ __('Balance') }} ${{ number_format((float) $invoice->balance, 2) }}</p>
+                    <p class="text-xs text-slate-500">{{ __('Balance') }} {{ $money($invoice->balance) }}</p>
                 @endif
                 <span class="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium {{ $badge($invoice->payment_status) }}">
                     {{ $invoice->payment_status->getLabel() }}

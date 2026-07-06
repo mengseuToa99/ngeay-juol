@@ -6,6 +6,7 @@ use App\Enums\PropertyType;
 use App\Filament\Resources\PropertyResource\Pages;
 use App\Filament\Resources\PropertyResource\RelationManagers;
 use App\Models\Property;
+use App\Support\SimpleLandlordMode;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -35,6 +36,11 @@ class PropertyResource extends Resource
     public static function getModelLabel(): string
     {
         return __('Property');
+    }
+
+    public static function shouldRegisterNavigation(): bool
+    {
+        return ! SimpleLandlordMode::enabledFor(auth()->user());
     }
 
     public static function form(Form $form): Form

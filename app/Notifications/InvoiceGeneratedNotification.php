@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Invoice;
 use App\Models\User;
+use App\Support\Money;
 use App\Support\Notifications\NotificationChannels;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -26,7 +27,7 @@ class InvoiceGeneratedNotification extends Notification
         return (new MailMessage)
             ->subject(__('New invoice :number', ['number' => $this->invoice->invoice_number]))
             ->line(__('A new invoice has been generated.'))
-            ->line(__('Amount due: :amount', ['amount' => '$'.number_format((float) $this->invoice->amount_due, 2)]))
+            ->line(__('Amount due: :amount', ['amount' => Money::formatForRecord($this->invoice->amount_due, $this->invoice)]))
             ->line(__('Due date: :date', ['date' => Invoice::displayDate($this->invoice->due_date)]));
     }
 

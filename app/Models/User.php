@@ -70,6 +70,7 @@ class User extends Authenticatable implements FilamentUser, HasMedia, HasName
             'password' => 'hashed',
             'status' => UserStatus::class,
             'dob' => 'date',
+            'prefers_simple_landlord_mode' => 'boolean',
         ];
     }
 
@@ -151,6 +152,39 @@ class User extends Authenticatable implements FilamentUser, HasMedia, HasName
         return null;
     }
 
+    /**
+     * Get the allowed rental IDs for this tenant portal user.
+     *
+     * @return array<int>
+     */
+    public function tenantPortalRentalIds(): array
+    {
+        $isSharedRoomAccount = Unit::withoutGlobalScopes()
+            ->where('account_user_id', $this->getKey())
+            ->exists();
+
+        if ($isSharedRoomAccount) {
+            $activeRentalIds = Rental::withoutGlobalScopes()
+                ->whereIn('unit_id', function ($query) {
+                    $query->select('id')
+                        ->from('units')
+                        ->where('account_user_id', $this->getKey());
+                })
+                ->where('status', \App\Enums\RentalStatus::Active->value)
+                ->pluck('id')
+                ->all();
+
+            return array_map('intval', $activeRentalIds);
+        }
+
+        $rentalIds = Rental::withoutGlobalScopes()
+            ->where('tenant_id', $this->getKey())
+            ->pluck('id')
+            ->all();
+
+        return array_map('intval', $rentalIds);
+    }
+
     /** May this user create tenant accounts? (admin always; landlord/manager if delegated). */
     public function canCreateTenants(): bool
     {
@@ -163,6 +197,11 @@ class User extends Authenticatable implements FilamentUser, HasMedia, HasName
         }
 
         return false;
+    }
+
+    public function prefersSimpleLandlordMode(): bool
+    {
+        return (bool) $this->prefers_simple_landlord_mode;
     }
 
     /** Resolve the landlord_profile that governs this actor's delegation flag. */

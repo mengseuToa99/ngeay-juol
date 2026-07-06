@@ -3,6 +3,8 @@
 namespace App\Filament\Resources\UnitResource\RelationManagers;
 
 use App\Models\Invoice;
+use App\Models\Payment;
+use App\Support\Money;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -29,10 +31,17 @@ class InvoicesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('invoice_number')->label(__('Invoice'))->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('tenant.name')->label(__('Tenant'))->searchable()->placeholder('—'),
                 Tables\Columns\TextColumn::make('period_start')->label(__('Period'))->date('M Y')->sortable(),
-                Tables\Columns\TextColumn::make('amount_due')->label(__('Billed'))->money('USD')->sortable(),
-                Tables\Columns\TextColumn::make('amount_paid')->label(__('Paid'))->money('USD')->color('success'),
-                Tables\Columns\TextColumn::make('balance')->label(__('Balance'))->money('USD')
+                Tables\Columns\TextColumn::make('amount_due')
+                    ->label(__('Billed'))
+                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatForRecord($state, $record))
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('amount_paid')
+                    ->label(__('Paid'))
+                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatForRecord($state, $record))
+                    ->color('success'),
+                Tables\Columns\TextColumn::make('balance')->label(__('Balance'))
                     ->state(fn (Invoice $r) => $r->balance)
+                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatForRecord($state, $record))
                     ->color(fn (Invoice $r) => $r->balance > 0 ? 'danger' : 'gray'),
                 Tables\Columns\TextColumn::make('payment_status')->label(__('Status'))->badge(),
             ])
@@ -53,7 +62,8 @@ class InvoicesRelationManager extends RelationManager
                                     ->hiddenLabel()
                                     ->schema([
                                         \Filament\Infolists\Components\TextEntry::make('paid_at')->dateTime(),
-                                        \Filament\Infolists\Components\TextEntry::make('amount')->money('USD'),
+                                        \Filament\Infolists\Components\TextEntry::make('amount')
+                                            ->formatStateUsing(fn ($state, Payment $record) => Money::formatForRecord($state, $record)),
                                         \Filament\Infolists\Components\TextEntry::make('method')->badge(),
                                         \Filament\Infolists\Components\TextEntry::make('recordedBy.name')->label(__('Recorded by'))->placeholder('—'),
                                         \Filament\Infolists\Components\TextEntry::make('receipt_number')->placeholder('—'),

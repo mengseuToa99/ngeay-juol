@@ -13,6 +13,7 @@ use App\Models\Unit;
 use App\Models\UtilityUsage;
 use App\Models\UtilityWaiver;
 use App\Support\ActiveProperty;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -60,24 +61,22 @@ class PropertyUtilityResource extends Resource
                 ->dehydrated()
                 ->searchable()->preload()
                 ->required(fn () => ActiveProperty::id() === null),
-            Forms\Components\TextInput::make('name')
+            Forms\Components\Select::make('name')
+                ->label(__('Utility name'))
+                ->options(fn (?PropertyUtility $record) => static::utilityOptionsForRecord($record))
+                ->default('Electricity')
+                ->searchable()
+                ->native(false)
+                ->selectablePlaceholder(false)
                 ->required()
-                ->datalist(['Electricity', 'Water', 'Gas', 'Internet', 'Trash', 'Cleaning', 'Parking'])
-                ->live(onBlur: true)
-                ->afterStateUpdated(function ($state, Forms\Set $set) {
-                    $uom = match (strtolower((string) $state)) {
-                        'electricity' => 'kWh',
-                        'water', 'gas' => 'm³',
-                        'internet', 'trash', 'cleaning', 'parking' => 'month',
-                        default => null,
-                    };
-                    if ($uom) {
-                        $set('unit_of_measure', $uom);
-                    }
-                }),
-            Forms\Components\TextInput::make('unit_of_measure')->required()->default('unit'),
+                ->live()
+                ->afterStateUpdated(fn ($state, Forms\Set $set) => static::applyUtilityDefaults($state, $set)),
+            Forms\Components\TextInput::make('unit_of_measure')
+                ->label(__('Unit of measure'))
+                ->required()
+                ->default('kWh'),
             Forms\Components\Select::make('billing_type')->options(BillingType::class)->default(BillingType::Metered)->required(),
-            Forms\Components\TextInput::make('rate')->numeric()->prefix('$')->step(0.0001)->required()
+            Forms\Components\TextInput::make('rate')->numeric()->prefix(fn () => Money::activeSymbol())->step(0.0001)->required()
                 ->helperText(__('Per unit (metered) or fixed amount (flat).')),
             Forms\Components\TextInput::make('provider')->placeholder('e.g. EDC, PPWSA'),
             Forms\Components\TextInput::make('account_ref')->label(__('Account #')),
@@ -90,9 +89,12 @@ class PropertyUtilityResource extends Resource
     {
         return $table
             ->columns([
-                Tables\Columns\TextColumn::make('name')->searchable(),
+                Tables\Columns\TextColumn::make('name')
+                    ->formatStateUsing(fn ($state) => static::utilityLabel((string) $state))
+                    ->searchable(),
                 Tables\Columns\TextColumn::make('billing_type')->badge(),
-                Tables\Columns\TextColumn::make('rate')->money('USD'),
+                Tables\Columns\TextColumn::make('rate')
+                    ->formatStateUsing(fn ($state, PropertyUtility $record) => Money::formatForRecord($state, $record)),
                 Tables\Columns\TextColumn::make('unit_of_measure')->label(__('Unit')),
                 Tables\Columns\TextColumn::make('provider')->placeholder('—')->toggleable(),
                 Tables\Columns\IconColumn::make('is_active')->boolean(),
@@ -116,6 +118,59 @@ class PropertyUtilityResource extends Resource
                 ]),
             ]);
     }
+
+    /** @return array<string, string> */
+    protected static function utilityOptions(): array
+    {
+        return [
+            'Electricity' => __('Electricity'),
+            'Water' => __('Water'),
+            'Gas' => __('Gas'),
+            'Internet' => __('Internet'),
+            'Trash' => __('Trash'),
+            'Cleaning' => __('Cleaning'),
+            'Parking' => __('Parking'),
+            'Security' => __('Security'),
+            'Other' => __('Other'),
+        ];
+    }
+
+    /** @return array<string, string> */
+    protected static function utilityOptionsForRecord(?PropertyUtility $record): array
+    {
+        $options = static::utilityOptions();
+        $name = (string) ($record?->name ?? '');
+
+        if ($name !== '' && ! array_key_exists($name, $options)) {
+            $options[$name] = $name;
+        }
+
+        return $options;
+    }
+
+    protected static function utilityLabel(string $name): string
+    {
+        return static::utilityOptions()[$name] ?? $name;
+    }
+
+    protected static function applyUtilityDefaults(mixed $state, Forms\Set $set): void
+    {
+        $defaults = match ((string) $state) {
+            'Electricity' => ['unit' => 'kWh', 'billing' => BillingType::Metered],
+            'Water' => ['unit' => 'm³', 'billing' => BillingType::Metered],
+            'Gas' => ['unit' => 'm³', 'billing' => BillingType::Metered],
+            'Internet' => ['unit' => 'month', 'billing' => BillingType::Flat],
+            'Trash' => ['unit' => 'month', 'billing' => BillingType::Flat],
+            'Cleaning' => ['unit' => 'month', 'billing' => BillingType::Flat],
+            'Parking' => ['unit' => 'month', 'billing' => BillingType::Flat],
+            'Security' => ['unit' => 'month', 'billing' => BillingType::Flat],
+            default => ['unit' => 'unit', 'billing' => BillingType::Flat],
+        };
+
+        $set('unit_of_measure', $defaults['unit']);
+        $set('billing_type', $defaults['billing']->value);
+    }
+
     protected static function addWaiverAction(): Tables\Actions\Action
     {
         return Tables\Actions\Action::make('addWaiver')

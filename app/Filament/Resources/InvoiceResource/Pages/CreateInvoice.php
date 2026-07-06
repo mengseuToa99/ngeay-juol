@@ -54,7 +54,7 @@ class CreateInvoice extends CreateRecord
             }
 
             $old = (float) ($row['old_reading'] ?? 0);
-            $new = $hasReading ? (float) $row['new_reading'] : $old;
+            $new = $isFlat ? null : ($hasReading ? (float) $row['new_reading'] : $old);
 
             $usages[] = UtilityUsage::create([
                 'property_utility_id' => $row['property_utility_id'],
@@ -66,7 +66,7 @@ class CreateInvoice extends CreateRecord
                 'reading_date' => $periodEnd,
                 'old_reading' => $old,
                 'new_reading' => $new,
-                'amount_used' => max(0, $new - $old),
+                'amount_used' => $isFlat ? 0.0 : max(0, $new - $old),
             ]);
         }
 

@@ -69,4 +69,14 @@ class PropertyUtility extends Model
     {
         return $this->hasMany(UtilityWaiver::class);
     }
+
+    public function requiresReading(): bool
+    {
+        return $this->billing_type !== BillingType::Flat;
+    }
+
+    public function isFixedMonthlyCharge(): bool
+    {
+        return ! $this->requiresReading();
+    }
 }

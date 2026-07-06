@@ -46,4 +46,19 @@ class InvoiceLine extends Model
     {
         return $this->belongsTo(UtilityUsage::class);
     }
+
+    /** Get dynamically translated description for invoices. */
+    public function getTranslatedDescription(): string
+    {
+        $desc = $this->description;
+        if (str_ends_with($desc, ' usage')) {
+            $utilityName = substr($desc, 0, -6);
+            $translatedUtility = __($utilityName);
+            return app()->getLocale() === 'km'
+                ? 'ការប្រើប្រាស់' . $translatedUtility
+                : $translatedUtility . ' usage';
+        }
+
+        return __($desc);
+    }
 }

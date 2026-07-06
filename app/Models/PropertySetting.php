@@ -12,6 +12,10 @@ class PropertySetting extends Model
     protected $fillable = [
         'property_id',
         'currency',
+        'usd_khr_exchange_rate',
+        'exchange_rate_date',
+        'exchange_rate_source',
+        'exchange_rate_fetched_at',
         'invoice_prefix',
         'due_day_of_month',
         'late_fee',
@@ -38,6 +42,9 @@ class PropertySetting extends Model
     {
         return [
             'late_fee'                    => 'decimal:2',
+            'usd_khr_exchange_rate'       => 'decimal:4',
+            'exchange_rate_date'          => 'date',
+            'exchange_rate_fetched_at'    => 'datetime',
             'due_day_of_month'            => 'integer',
             'default_lease_months'        => 'integer',
             'first_month_billing_mode'    => FirstMonthBillingMode::class,

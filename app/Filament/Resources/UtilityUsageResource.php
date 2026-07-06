@@ -8,6 +8,7 @@ use App\Filament\Pages\ConsumptionHistory;
 use App\Filament\Resources\UtilityUsageResource\Pages;
 use App\Models\UtilityUsage;
 use App\Support\ActiveProperty;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -87,8 +88,8 @@ class UtilityUsageResource extends Resource
     {
         return $table
             ->modifyQueryUsing(fn (Builder $query) => $query->with([
-                'propertyUtility:id,name,unit_of_measure,rate',
-                'unit:id,room_number',
+                'propertyUtility:id,property_id,name,unit_of_measure,rate',
+                'unit:id,property_id,room_number',
             ]))
             ->defaultSort('reading_date', 'desc')
             ->defaultGroup('reading_date')
@@ -121,10 +122,10 @@ class UtilityUsageResource extends Resource
                     Tables\Columns\TextColumn::make('amount_billed')
                         ->label(__('Amount'))
                         ->alignEnd()
-                        ->money('USD')
                         ->state(fn (UtilityUsage $record) => $record->propertyUtility?->rate
                             ? round((float) $record->amount_used * (float) $record->propertyUtility->rate, 2)
                             : null)
+                        ->formatStateUsing(fn ($state, UtilityUsage $record) => Money::formatForRecord($state, $record))
                         ->placeholder('—'),
                     Tables\Columns\IconColumn::make('is_waived')
                         ->label(__('Waived'))

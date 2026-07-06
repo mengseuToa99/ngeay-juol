@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Invoice;
+use App\Support\Money;
 use OpenSpout\Common\Entity\Row;
 use OpenSpout\Common\Entity\Style\Style;
 use OpenSpout\Writer\XLSX\Writer;
@@ -10,12 +11,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class InvoiceExcelExport
 {
+    private Invoice $invoice;
+
     /**
      * Stream the invoice as a downloadable XLSX workbook.
      */
     public function download(Invoice $invoice): StreamedResponse
     {
         $invoice->loadMissing(['lines', 'payments.recordedBy', 'tenant', 'rental.unit.property', 'property']);
+        $this->invoice = $invoice;
 
         return response()->streamDownload(
             fn () => $this->write($invoice),
@@ -29,6 +33,7 @@ class InvoiceExcelExport
      */
     private function write(Invoice $invoice): void
     {
+        $this->invoice = $invoice;
         $bold = (new Style())->setFontBold();
 
         $writer = new Writer();
@@ -119,7 +124,7 @@ class InvoiceExcelExport
      */
     private function money(mixed $value): string
     {
-        return '$'.number_format((float) $value, 2);
+        return Money::formatForRecord($value, $this->invoice);
     }
 
     /**

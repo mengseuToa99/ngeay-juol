@@ -7,6 +7,7 @@ use App\Filament\Pages\Billing;
 use App\Filament\Pages\ConsumptionHistory;
 use App\Filament\Pages\MonthlyBilling;
 use App\Filament\Pages\PropertySettings;
+use App\Filament\Pages\UtilityBilling;
 use App\Filament\Resources\InvoiceResource;
 use App\Filament\Resources\PaymentResource;
 use App\Filament\Resources\PropertyResource;
@@ -21,8 +22,10 @@ use App\Filament\Widgets\RoomStatusWidget;
 use App\Filament\Widgets\SubscriptionStatusWidget;
 use App\Filament\Widgets\UtilityUsageWidget;
 use App\Http\Middleware\EnsureActiveSubscription;
+use App\Http\Middleware\RedirectToSimpleLandlordMode;
 use App\Http\Middleware\SetLocale;
 use App\Support\ActiveProperty;
+use App\Support\SimpleLandlordMode;
 use Filament\Http\Middleware\Authenticate;
 use Filament\Http\Middleware\AuthenticateSession;
 use Filament\Http\Middleware\DisableBladeIconComponents;
@@ -56,7 +59,8 @@ class LandlordPanelProvider extends PanelProvider
             ->id('landlord')
             ->path('landlord')
             ->brandName(__('ngeay juol'))
-            ->brandLogo(asset('Khmer%20House%20Key.svg'))
+            ->brandLogo(fn () => view('filament.components.brand-logo'))
+            ->favicon(asset('favicon.ico'))
             ->brandLogoHeight('2.25rem')
             ->font('Plus Jakarta Sans')
             ->sidebarCollapsibleOnDesktop()
@@ -87,11 +91,22 @@ class LandlordPanelProvider extends PanelProvider
             // popup to wire up here; just load the shared admin theme.
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
-                fn (): string => '<link rel="stylesheet" href="'.asset('css/rentwise-admin.css').'?v='.@filemtime(public_path('css/rentwise-admin.css')).'">',
+                fn (): string => '<link rel="stylesheet" href="'.asset('css/rentwise-admin.css').'?v='.@filemtime(public_path('css/rentwise-admin.css')).'">'.
+                    '<link rel="manifest" href="'.asset('manifest.json').'">'.
+                    '<meta name="theme-color" content="#059669">'.
+                    '<meta name="mobile-web-app-capable" content="yes">'.
+                    '<meta name="apple-mobile-web-app-capable" content="yes">'.
+                    '<meta name="apple-mobile-web-app-title" content="ngeay juol">',
+            )
+            ->renderHook(
+                PanelsRenderHook::BODY_END,
+                fn (): string => '<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{})}</script>',
             )
             ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,
-                fn (): string => view('filament.components.language-switcher'),
+                fn (): string => Blade::render(
+                    '<div class="flex items-center gap-2">@include(\'filament.components.language-switcher\')</div>',
+                ),
             )
             // Property context switcher at the top of the sidebar — landlord panel only.
             ->renderHook(
@@ -108,6 +123,15 @@ class LandlordPanelProvider extends PanelProvider
                 'Utilities' => NavigationGroup::make()->label(fn () => __('Utilities')),
             ])
             ->userMenuItems([
+                MenuItem::make()
+                    ->label(fn () => SimpleLandlordMode::enabledFor(auth()->user())
+                        ? __('Switch to full mode')
+                        : __('Switch to simple mode'))
+                    ->icon(fn () => SimpleLandlordMode::enabledFor(auth()->user())
+                        ? 'heroicon-o-squares-2x2'
+                        : 'heroicon-o-device-phone-mobile')
+                    ->postAction(fn () => route('landlord.simple-mode.toggle'))
+                    ->visible(fn () => SimpleLandlordMode::canUse(auth()->user())),
                 // Platform staff drill into a landlord's properties from /admin;
                 // give them a way back to the staff panel.
                 MenuItem::make()
@@ -141,8 +165,10 @@ class LandlordPanelProvider extends PanelProvider
                 Dashboard::class,
                 Billing::class,
                 MonthlyBilling::class,
+                UtilityBilling::class,
                 PropertySettings::class,
                 ConsumptionHistory::class,
+                \App\Filament\Pages\SimpleDashboard::class,
             ])
             ->widgets([
                 AccountWidget::class,
@@ -168,6 +194,7 @@ class LandlordPanelProvider extends PanelProvider
             ->authMiddleware([
                 Authenticate::class,
                 EnsureActiveSubscription::class,
+                RedirectToSimpleLandlordMode::class,
             ]);
     }
 }

@@ -11,21 +11,25 @@
         {{-- Status banner --}}
         @php $access = $this->getAccess(); @endphp
         @if($access === SubscriptionAccess::PastDue)
-            <x-filament::alert
-                type="warning"
-                title="{{ __('Subscription past due') }}"
-                icon="heroicon-o-exclamation-triangle"
-            >
-                {{ __('Your subscription ended on :date. Please renew to continue using all features.', ['date' => $subscription->ends_at?->format('Y-m-d')]) }}
-            </x-filament::alert>
+            <div class="rounded-3xl border border-amber-200 bg-amber-50 p-4 text-amber-900 dark:border-amber-900/40 dark:bg-amber-950/30 dark:text-amber-100">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-exclamation-triangle class="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                        <p class="font-semibold">{{ __('Subscription past due') }}</p>
+                        <p class="mt-1 text-sm">{{ __('Your subscription ended on :date. Please renew to continue using all features.', ['date' => $subscription->ends_at?->format('Y-m-d')]) }}</p>
+                    </div>
+                </div>
+            </div>
         @elseif($access === SubscriptionAccess::ReadOnly)
-            <x-filament::alert
-                type="danger"
-                title="{{ __('Subscription expired') }}"
-                icon="heroicon-o-x-circle"
-            >
-                {{ __('Your subscription has expired. You are in read-only mode. Please contact the administrator to restore access.') }}
-            </x-filament::alert>
+            <div class="rounded-3xl border border-red-200 bg-red-50 p-4 text-red-900 dark:border-red-900/40 dark:bg-red-950/30 dark:text-red-100">
+                <div class="flex items-start gap-3">
+                    <x-heroicon-o-x-circle class="mt-0.5 h-5 w-5 shrink-0" />
+                    <div>
+                        <p class="font-semibold">{{ __('Subscription expired') }}</p>
+                        <p class="mt-1 text-sm">{{ __('Your subscription has expired. You are in read-only mode. Please contact the administrator to restore access.') }}</p>
+                    </div>
+                </div>
+            </div>
         @endif
 
         <div class="grid grid-cols-1 gap-6 lg:grid-cols-3">

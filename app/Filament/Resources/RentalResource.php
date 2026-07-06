@@ -8,6 +8,7 @@ use App\Filament\Resources\RentalResource\Pages;
 use App\Models\Rental;
 use App\Services\TenancyService;
 use App\Support\ActiveProperty;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Components\SpatieMediaLibraryFileUpload;
 use Filament\Forms\Form;
@@ -89,8 +90,8 @@ class RentalResource extends Resource
                             };
                         }),
                     Forms\Components\Select::make('status')->options(RentalStatus::class)->default(RentalStatus::Active)->required(),
-                    Forms\Components\TextInput::make('monthly_rent')->numeric()->prefix('$')->required(),
-                    Forms\Components\TextInput::make('security_deposit')->numeric()->prefix('$')
+                    Forms\Components\TextInput::make('monthly_rent')->numeric()->prefix(fn () => Money::activeSymbol())->required(),
+                    Forms\Components\TextInput::make('security_deposit')->numeric()->prefix(fn () => Money::activeSymbol())
                         ->default(0)
                         ->dehydrateStateUsing(fn ($state) => $state === '' || $state === null ? 0 : $state),
                     Forms\Components\DatePicker::make('start_date')->required(),
@@ -170,7 +171,8 @@ class RentalResource extends Resource
                 Tables\Columns\TextColumn::make('occupant_name')->label(__('Occupant'))->placeholder('—')->searchable(),
                 Tables\Columns\TextColumn::make('occupant_id_card')->label(__('ID card'))->placeholder('—')->toggleable(isToggledHiddenByDefault: true),
                 Tables\Columns\TextColumn::make('tenant.username')->label(__('Login'))->placeholder('—')->toggleable(),
-                Tables\Columns\TextColumn::make('monthly_rent')->money('USD'),
+                Tables\Columns\TextColumn::make('monthly_rent')
+                    ->formatStateUsing(fn ($state, Rental $record) => Money::formatForRecord($state, $record)),
                 Tables\Columns\TextColumn::make('status')->badge(),
                 Tables\Columns\TextColumn::make('start_date')->date(),
                 Tables\Columns\TextColumn::make('end_date')->date(),

@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\UnitResource\RelationManagers;
 
 use App\Models\UtilityUsage;
+use App\Support\Money;
 use Filament\Resources\RelationManagers\RelationManager;
 use Filament\Tables;
 use Filament\Tables\Table;
@@ -21,7 +22,7 @@ class UtilityUsageRelationManager extends RelationManager
         return $table
             ->recordTitleAttribute('id')
             ->modifyQueryUsing(fn (Builder $query) => $query->with([
-                'propertyUtility:id,name,unit_of_measure,rate',
+                'propertyUtility:id,property_id,name,unit_of_measure,rate',
             ]))
             ->defaultSort('reading_date', 'desc')
             ->defaultGroup('reading_date')
@@ -52,10 +53,10 @@ class UtilityUsageRelationManager extends RelationManager
                     Tables\Columns\TextColumn::make('amount_billed')
                         ->label(__('Amount'))
                         ->alignEnd()
-                        ->money('USD')
                         ->state(fn (UtilityUsage $record) => $record->propertyUtility?->rate
                             ? round((float) $record->amount_used * (float) $record->propertyUtility->rate, 2)
                             : null)
+                        ->formatStateUsing(fn ($state, UtilityUsage $record) => Money::formatForRecord($state, $record))
                         ->placeholder('—'),
 
                     Tables\Columns\IconColumn::make('is_waived')

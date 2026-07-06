@@ -6,6 +6,8 @@ use App\Enums\InvoiceStatus;
 use App\Enums\UnitStatus;
 use App\Filament\Pages\MonthlyBilling;
 use App\Filament\Resources\PropertyResource;
+use App\Support\ActiveProperty;
+use App\Support\Money;
 use Filament\Actions;
 use Filament\Infolists\Components\Section;
 use Filament\Infolists\Components\TextEntry;
@@ -42,7 +44,11 @@ class ViewProperty extends ViewRecord
             Actions\Action::make('monthlyBilling')
                 ->label(__('Monthly billing'))
                 ->icon('heroicon-o-calendar-days')
-                ->url(fn () => MonthlyBilling::getUrl()),
+                ->action(function ($record) {
+                    ActiveProperty::set($record->getKey());
+
+                    return redirect(MonthlyBilling::getUrl());
+                }),
             Actions\EditAction::make()->label(__('Edit property'))->icon('heroicon-o-pencil-square'),
         ];
     }
@@ -69,9 +75,9 @@ class ViewProperty extends ViewRecord
                     TextEntry::make('utilities')->label(__('Active utilities'))
                         ->state(fn ($record) => $record->propertyUtilities()->where('is_active', true)->count()),
                     TextEntry::make('outstanding')->label(__('Outstanding'))
-                        ->state(fn ($record) => '$'.number_format((float) $record->invoices()
+                        ->state(fn ($record) => Money::formatForRecord($record->invoices()
                             ->whereIn('payment_status', [InvoiceStatus::Pending->value, InvoiceStatus::Partial->value, InvoiceStatus::Overdue->value])
-                            ->selectRaw('COALESCE(SUM(amount_due - amount_paid),0) as b')->value('b'), 2))
+                            ->selectRaw('COALESCE(SUM(amount_due - amount_paid),0) as b')->value('b'), $record))
                         ->color('warning'),
                 ])->columns(4),
         ]);

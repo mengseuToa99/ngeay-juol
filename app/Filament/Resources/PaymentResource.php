@@ -7,6 +7,7 @@ use App\Filament\Concerns\ScopesToActiveProperty;
 use App\Filament\Resources\PaymentResource\Pages;
 use App\Models\Payment;
 use App\Support\ActiveProperty;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\Resource;
@@ -48,7 +49,7 @@ class PaymentResource extends Resource
                 )
                 ->searchable()->preload()->required()
                 ->disabledOn('edit'),
-            Forms\Components\TextInput::make('amount')->numeric()->prefix('$')->required(),
+            Forms\Components\TextInput::make('amount')->numeric()->prefix(fn () => Money::activeSymbol())->required(),
             Forms\Components\DateTimePicker::make('paid_at')->default(now())->required(),
             Forms\Components\Select::make('method')->options(PaymentMethod::class)->default(PaymentMethod::Cash)->required(),
             Forms\Components\TextInput::make('transaction_ref'),
@@ -62,7 +63,9 @@ class PaymentResource extends Resource
         return $table
             ->columns([
                 Tables\Columns\TextColumn::make('invoice.invoice_number')->label(__('Invoice'))->searchable()->sortable(),
-                Tables\Columns\TextColumn::make('amount')->money('USD')->sortable(),
+                Tables\Columns\TextColumn::make('amount')
+                    ->formatStateUsing(fn ($state, Payment $record) => Money::formatForRecord($state, $record))
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('paid_at')->dateTime()->sortable(),
                 Tables\Columns\TextColumn::make('method')->badge(),
                 Tables\Columns\TextColumn::make('recordedBy.name')->label(__('Recorded by'))->toggleable(),

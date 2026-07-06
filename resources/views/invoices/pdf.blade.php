@@ -12,8 +12,9 @@
     /** @var \App\Models\Invoice $invoice */
     use App\Models\Invoice;
     use App\Support\BrandLogo;
+    use App\Support\Money;
 
-    $money = fn ($v) => '$' . number_format((float) $v, 2);
+    $money = fn ($v) => Money::formatForRecord($v, $invoice);
     // ASCII separator/placeholder: the bundled Khmer font has no en/em dash glyph.
     $date = fn ($d) => Invoice::displayDate($d, 'd M Y', '-');
     $period = $invoice->billingPeriodLabel('d M Y', ' - ', '-');
@@ -259,7 +260,7 @@
             @foreach ($lines as $line)
                 <tr>
                     <td class="desc">
-                        {{ $line->description }}
+                        {{ $line->getTranslatedDescription() }}
                         @if ($line->is_waived)
                             <span class="waived">({{ __('Waived') }})</span>
                         @endif
@@ -400,7 +401,7 @@
                     @php $usage = $line->utilityUsage; @endphp
                     <tr class="{{ $line->is_waived ? 'waived' : '' }}">
                         <td>
-                            <div class="desc">{{ $line->description }}</div>
+                            <div class="desc">{{ $line->getTranslatedDescription() }}</div>
                             @if ($line->line_type)
                                 <div class="line-type">{{ optional($line->line_type)->getLabel() }}</div>
                             @endif

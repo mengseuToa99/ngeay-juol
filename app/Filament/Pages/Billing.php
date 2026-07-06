@@ -53,7 +53,8 @@ class Billing extends Page
 
     public static function shouldRegisterNavigation(): bool
     {
-        return auth()->user()?->hasAnyRole(['landlord', 'landlord_manager']) ?? false;
+        return ! \App\Support\SimpleLandlordMode::enabledFor(auth()->user())
+            && (auth()->user()?->hasAnyRole(['landlord', 'landlord_manager']) ?? false);
     }
 
     // ---------------------------------------------------------------------

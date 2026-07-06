@@ -13,8 +13,9 @@
     /** @var \App\Models\Invoice $invoice */
     use App\Models\Invoice;
     use App\Support\BrandLogo;
+    use App\Support\Money;
 
-    $money = fn ($v) => '$' . number_format((float) $v, 2);
+    $money = fn ($v) => Money::formatForRecord($v, $invoice);
     $qty = fn ($v) => rtrim(rtrim(number_format((float) $v, 3), '0'), '.');
 
     $subtotal = $invoice->lines->sum(fn ($l) => (float) $l->amount);
@@ -163,12 +164,17 @@
     <div class="rw-invoice-toolbar">
         <a href="{{ route('invoices.pdf', ['invoice' => $invoice, 'size' => 'a4', 'mode' => 'stream']) }}"
            target="_blank" rel="noopener" class="rw-btn rw-btn--primary">
-            <x-filament::icon icon="heroicon-m-printer" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" data-slot="icon">
+                <path fill-rule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 16.75 6H18a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-.25v1.25a1.75 1.75 0 0 1-1.75 1.75h-8.5A1.75 1.75 0 0 1 4 17.25V16H3.75A2 2 0 0 1 1.75 14V8a2 2 0 0 1 2-2h1.25A1.75 1.75 0 0 1 6.75 4.25v-1.5ZM6.5 4.25c0-.138.112-.25.25-.25h6.5c.138 0 .25.112.25.25v1.5c0 .138-.112.25-.25.25h-6.5a.25.25 0 0 1-.25-.25v-1.5ZM5.5 17.25c0-.138.112-.25.25-.25h8.5c.138 0 .25.112.25.25v-3.5c0-.138-.112-.25-.25-.25h-8.5c-.138 0-.25.112-.25.25v3.5Z" clip-rule="evenodd" />
+            </svg>
             {{ __('Print') }}
         </a>
         <a href="{{ route('invoices.pdf', ['invoice' => $invoice, 'size' => 'a4']) }}"
            target="_blank" rel="noopener" class="rw-btn rw-btn--ghost">
-            <x-filament::icon icon="heroicon-m-arrow-down-tray" />
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" data-slot="icon">
+                <path d="M10.75 2.75a.75.75 0 0 0-1.5 0v8.614L6.295 8.275a.75.75 0 1 0-1.09 1.03l4.25 4.5a.75.75 0 0 0 1.09 0l4.25-4.5a.75.75 0 0 0-1.09-1.03l-2.955 3.089V2.75Z" />
+                <path d="M16.4 13.25a1 1 0 0 0-.8-.4H4.4a1 1 0 0 0-.8.4 1.5 1.5 0 0 0-.4 1v.85c0 .69.56 1.25 1.25 1.25h11.1c.69 0 1.25-.56 1.25-1.25v-.85a1.5 1.5 0 0 0-.4-1Z" />
+            </svg>
             {{ __('PDF') }}
         </a>
     </div>
@@ -188,7 +194,10 @@
                     <div class="rw-biz-name">{{ $business }}</div>
                     @if ($address)
                         <div class="rw-biz-addr">
-                            <x-filament::icon icon="heroicon-o-map-pin" />
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1 1 15 0Z" />
+                            </svg>
                             <span>{{ $address }}</span>
                         </div>
                     @endif
@@ -213,7 +222,9 @@
                 @endif
                 @if ($invoice->tenant?->phone_number)
                     <div class="rw-phone">
-                        <x-filament::icon icon="heroicon-o-phone" />
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" aria-hidden="true" data-slot="icon">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 0 0 2.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-2.824-1.502-5.183-3.861-6.686-6.686l1.293-.97c.362-.272.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 0 0-1.091-.852H4.5A2.25 2.25 0 0 0 2.25 4.5v2.25Z" />
+                        </svg>
                         <span>{{ $invoice->tenant->phone_number }}</span>
                     </div>
                 @endif
@@ -245,7 +256,7 @@
                     @php $usage = $line->utilityUsage; @endphp
                     <tr class="{{ $line->is_waived ? 'waived' : '' }}">
                         <td>
-                            <div class="desc">{{ $line->description }}</div>
+                            <div class="desc">{{ $line->getTranslatedDescription() }}</div>
                             @if ($line->line_type || $line->is_waived)
                                 <div class="rw-tags">
                                     @if ($line->line_type)
@@ -259,7 +270,7 @@
                             @if ($usage && $usage->propertyUtility)
                                 @php $pu = $usage->propertyUtility; @endphp
                                 <div class="rw-usage">
-                                    <b>{{ $pu->name }}</b>@if ($pu->provider) ({{ $pu->provider }})@endif
+                                    <b>{{ __($pu->name) }}</b>@if ($pu->provider) ({{ $pu->provider }})@endif
                                     @if ($usage->old_reading !== null && $usage->new_reading !== null)
                                         <br>
                                         {{ __('Meter') }}: {{ number_format((float) $usage->old_reading, 1) }} → {{ number_format((float) $usage->new_reading, 1) }}

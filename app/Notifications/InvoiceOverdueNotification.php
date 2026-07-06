@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Invoice;
 use App\Models\User;
+use App\Support\Money;
 use App\Support\Notifications\NotificationChannels;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -26,7 +27,7 @@ class InvoiceOverdueNotification extends Notification
         return (new MailMessage)
             ->subject(__('Invoice :number is overdue', ['number' => $this->invoice->invoice_number]))
             ->line(__('This invoice is now overdue.'))
-            ->line(__('Outstanding balance: :amount', ['amount' => '$'.number_format((float) $this->invoice->balance, 2)]));
+            ->line(__('Outstanding balance: :amount', ['amount' => Money::formatForRecord($this->invoice->balance, $this->invoice)]));
     }
 
     /** @return array<string, mixed> */
@@ -42,7 +43,7 @@ class InvoiceOverdueNotification extends Notification
             'title' => __('Invoice overdue'),
             'body' => __('Invoice :number has an outstanding balance of :amount.', [
                 'number' => $this->invoice->invoice_number,
-                'amount' => '$'.number_format((float) $this->invoice->balance, 2),
+                'amount' => Money::formatForRecord($this->invoice->balance, $this->invoice),
             ]),
         ];
     }

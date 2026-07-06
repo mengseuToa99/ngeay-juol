@@ -5,6 +5,7 @@ namespace App\Filament\Widgets;
 use App\Enums\InvoiceStatus;
 use App\Models\Invoice;
 use App\Support\ActiveProperty;
+use App\Support\Money;
 use Filament\Tables;
 use Filament\Tables\Table;
 use Filament\Widgets\TableWidget as BaseWidget;
@@ -48,7 +49,7 @@ class OverdueInvoicesWidget extends BaseWidget
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('amount_due')
                     ->label(__('Amount Due'))
-                    ->money('USD')
+                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatForRecord($state, $record))
                     ->alignEnd(),
                 Tables\Columns\TextColumn::make('due_date')
                     ->label(__('Due Date'))

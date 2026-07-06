@@ -51,4 +51,9 @@ return [
         ],
     ],
 
+    'exchange_rate' => [
+        'nbc_endpoint' => env('EXCHANGE_RATE_NBC_ENDPOINT', 'https://www.nbc.gov.kh/api/exRate.php'),
+        'timeout' => env('EXCHANGE_RATE_TIMEOUT', 10),
+    ],
+
 ];

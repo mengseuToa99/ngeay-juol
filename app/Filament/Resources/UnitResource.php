@@ -12,6 +12,7 @@ use App\Models\Unit;
 use App\Models\UtilityUsage;
 use App\Services\RoomAccountService;
 use App\Support\ActiveProperty;
+use App\Support\Money;
 use BezhanSalleh\FilamentShield\Contracts\HasShieldPermissions;
 use Filament\Forms;
 use Filament\Forms\Form;
@@ -79,7 +80,7 @@ class UnitResource extends Resource implements HasShieldPermissions
             Forms\Components\TextInput::make('room_number')->required(),
             Forms\Components\TextInput::make('floor_number'),
             Forms\Components\TextInput::make('room_type')->required(),
-            Forms\Components\TextInput::make('rent_amount')->numeric()->prefix('$')->required(),
+            Forms\Components\TextInput::make('rent_amount')->numeric()->prefix(fn () => Money::activeSymbol())->required(),
             Forms\Components\DatePicker::make('due_date'),
             Forms\Components\Select::make('status')->options(UnitStatus::class)->default(UnitStatus::Available)->required(),
             Forms\Components\Textarea::make('description')->columnSpanFull(),
@@ -97,7 +98,9 @@ class UnitResource extends Resource implements HasShieldPermissions
                 Tables\Columns\TextColumn::make('floor_number')->label(__('Floor'))->sortable()->toggleable(),
                 Tables\Columns\TextColumn::make('room_number')->searchable()->sortable(),
                 Tables\Columns\TextColumn::make('room_type')->toggleable(),
-                Tables\Columns\TextColumn::make('rent_amount')->money('USD')->sortable(),
+                Tables\Columns\TextColumn::make('rent_amount')
+                    ->formatStateUsing(fn ($state, Unit $record) => Money::formatForRecord($state, $record))
+                    ->sortable(),
                 Tables\Columns\TextColumn::make('status')->badge()
                     // Click an occupied room's status to end its current tenancy.
                     ->action(static::endTenancyAction())
@@ -450,8 +453,8 @@ class UnitResource extends Resource implements HasShieldPermissions
                             ->numeric()->required()->live(onBlur: true),
                         Forms\Components\TextInput::make('rooms')->label(__('Rooms'))
                             ->numeric()->minValue(0)->default(4)->required()->live(onBlur: true),
-                        Forms\Components\TextInput::make('default_price')->label(__('Default $/room'))
-                            ->numeric()->prefix('$')->live(onBlur: true),
+                        Forms\Components\TextInput::make('default_price')->label(__('Default price per room'))
+                            ->numeric()->prefix(fn () => Money::activeSymbol())->live(onBlur: true),
                     ])
                     ->columns(3)
                     ->default([
@@ -492,7 +495,7 @@ class UnitResource extends Resource implements HasShieldPermissions
                         Forms\Components\TextInput::make('price')
                             ->label(fn (Forms\Get $get) => $get('number')
                                 .(filled($get('floor_default')) && (float) $get('price') !== (float) $get('floor_default') ? ' ✦' : ''))
-                            ->numeric()->prefix('$')->live(onBlur: true),
+                            ->numeric()->prefix(fn () => Money::activeSymbol())->live(onBlur: true),
                     ])
                     ->grid(4)
                     ->addable(false)->deletable(false)->reorderable(false)

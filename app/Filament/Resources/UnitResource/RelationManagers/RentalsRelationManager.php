@@ -6,6 +6,7 @@ use App\Enums\RentalStatus;
 use App\Models\Rental;
 use App\Services\RoomAccountService;
 use App\Services\TenancyService;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -69,10 +70,10 @@ class RentalsRelationManager extends RelationManager
                         ->required()
                         ->live(),
                     Forms\Components\TextInput::make('monthly_rent')
-                        ->numeric()->prefix('$')->required()
+                        ->numeric()->prefix(fn () => Money::activeSymbol())->required()
                         ->default(fn () => $this->getOwnerRecord()->rent_amount),
                     Forms\Components\TextInput::make('security_deposit')
-                        ->numeric()->prefix('$')->default(0)
+                        ->numeric()->prefix(fn () => Money::activeSymbol())->default(0)
                         ->dehydrateStateUsing(fn ($state) => $state === '' || $state === null ? 0 : $state),
                     Forms\Components\DatePicker::make('start_date')
                         ->default(now())
@@ -161,7 +162,8 @@ class RentalsRelationManager extends RelationManager
                     ->placeholder(__('—'))
                     ->badge()
                     ->color('info'),
-                Tables\Columns\TextColumn::make('monthly_rent')->money('USD'),
+                Tables\Columns\TextColumn::make('monthly_rent')
+                    ->formatStateUsing(fn ($state, Rental $record) => Money::formatForRecord($state, $record)),
             ])
             ->filters([
                 Tables\Filters\SelectFilter::make('status')->options(RentalStatus::class),

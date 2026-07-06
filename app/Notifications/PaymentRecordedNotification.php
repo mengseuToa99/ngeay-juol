@@ -4,6 +4,7 @@ namespace App\Notifications;
 
 use App\Models\Payment;
 use App\Models\User;
+use App\Support\Money;
 use App\Support\Notifications\NotificationChannels;
 use Illuminate\Bus\Queueable;
 use Illuminate\Notifications\Messages\MailMessage;
@@ -28,7 +29,7 @@ class PaymentRecordedNotification extends Notification
             ->line(__('A payment has been recorded for invoice :number.', [
                 'number' => $this->payment->invoice?->invoice_number,
             ]))
-            ->line(__('Amount: :amount', ['amount' => '$'.number_format((float) $this->payment->amount, 2)]));
+            ->line(__('Amount: :amount', ['amount' => Money::formatForRecord($this->payment->amount, $this->payment)]));
     }
 
     /** @return array<string, mixed> */
@@ -44,7 +45,7 @@ class PaymentRecordedNotification extends Notification
             'paid_at' => $this->payment->paid_at?->toDateTimeString(),
             'title' => __('Payment recorded'),
             'body' => __('A :amount payment was recorded for invoice :number.', [
-                'amount' => '$'.number_format((float) $this->payment->amount, 2),
+                'amount' => Money::formatForRecord($this->payment->amount, $this->payment),
                 'number' => $this->payment->invoice?->invoice_number,
             ]),
         ];

@@ -25,6 +25,12 @@ class InvoiceDocumentController extends Controller
     {
         $this->guard($invoice);
 
+        \Illuminate\Support\Facades\Log::info('PDF request locale check', [
+            'app_locale' => app()->getLocale(),
+            'session_locale' => $request->session()->get('locale'),
+            'cookie_locale' => $request->cookie('locale'),
+        ]);
+
         $size = in_array($request->query('size'), InvoicePaper::SIZES, true)
             ? $request->query('size')
             : 'a4';
@@ -37,6 +43,9 @@ class InvoiceDocumentController extends Controller
         return response($pdfContent, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => ($mode === 'stream' ? 'inline' : 'attachment') . '; filename="' . $name . '"',
+            'Cache-Control' => 'no-cache, no-store, must-revalidate',
+            'Pragma' => 'no-cache',
+            'Expires' => '0',
         ]);
     }
 
@@ -64,6 +73,6 @@ class InvoiceDocumentController extends Controller
             return;
         }
 
-        abort_unless((int) $invoice->tenant_id === (int) $user?->id, 403);
+        abort_unless($user && in_array((int) $invoice->rental_id, $user->tenantPortalRentalIds(), true), 403);
     }
 }

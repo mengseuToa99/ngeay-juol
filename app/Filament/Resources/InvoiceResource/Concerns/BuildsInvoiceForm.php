@@ -10,6 +10,7 @@ use App\Models\Unit;
 use App\Models\UtilityUsage;
 use App\Models\UtilityWaiver;
 use App\Support\ActiveProperty;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Get;
 use Filament\Forms\Set;
@@ -46,7 +47,7 @@ trait BuildsInvoiceForm
                         ->content(fn (Get $get) => static::tenantLabel($get('rental_id')) ?? '—'),
                     Forms\Components\TextInput::make('monthly_rent')
                         ->label(__('Monthly rent'))
-                        ->numeric()->prefix('$')->required()
+                        ->numeric()->prefix(fn (Get $get) => Money::symbolForUnitId($get('unit_id')))->required()
                         ->live(onBlur: true)
                         ->helperText(__('Auto-filled from the room — adjust if needed.')),
                     Forms\Components\Toggle::make('include_rent')
@@ -91,17 +92,22 @@ trait BuildsInvoiceForm
                             Forms\Components\Hidden::make('rate'),
                             Forms\Components\Hidden::make('billing_type'),
                             Forms\Components\Hidden::make('unit_of_measure'),
+                            Forms\Components\Hidden::make('requires_reading'),
                             Forms\Components\Hidden::make('is_waived'),
                             Forms\Components\Placeholder::make('meter')
                                 ->label(fn (Get $get) => $get('utility_name'))
-                                ->content(fn (Get $get) => static::meterHint([
-                                    'rate' => $get('rate'),
-                                    'unit_of_measure' => $get('unit_of_measure'),
-                                ])),
+                                ->content(fn (Get $get) => $get('requires_reading')
+                                    ? static::meterHint([
+                                        'rate' => $get('rate'),
+                                        'unit_of_measure' => $get('unit_of_measure'),
+                                    ])
+                                    : __('Fixed charge').': '.Money::activeFormat((float) $get('rate'))),
                             Forms\Components\TextInput::make('old_reading')
+                                ->visible(fn (Get $get) => (bool) $get('requires_reading'))
                                 ->numeric()->disabled()->dehydrated()
                                 ->label(__('Old')),
                             Forms\Components\TextInput::make('new_reading')
+                                ->visible(fn (Get $get) => (bool) $get('requires_reading'))
                                 ->numeric()->live(onBlur: true)
                                 ->label(__('New reading')),
                             Forms\Components\Placeholder::make('line_amount')
@@ -112,6 +118,7 @@ trait BuildsInvoiceForm
                                     'old_reading' => $get('old_reading'),
                                     'new_reading' => $get('new_reading'),
                                     'is_waived' => $get('is_waived'),
+                                    'requires_reading' => $get('requires_reading'),
                                 ])),
                         ])
                         ->columns(4)
@@ -125,7 +132,7 @@ trait BuildsInvoiceForm
                         ->default(false)->live(),
                     Forms\Components\TextInput::make('extra_charge')
                         ->label(__('Extra charge'))
-                        ->numeric()->prefix('$')
+                        ->numeric()->prefix(fn (Get $get) => Money::symbolForUnitId($get('unit_id')))
                         ->default('0')->live(onBlur: true)
                         ->helperText(__('One-off extra charge to add to this invoice.'))
                         ->visible(fn (Get $get) => $get('has_extra_charge')),
@@ -136,12 +143,15 @@ trait BuildsInvoiceForm
                         ->visible(fn (Get $get) => $get('has_extra_charge')),
                     Forms\Components\Placeholder::make('grand_total')
                         ->label(__('Invoice total'))
-                        ->content(fn (Get $get) => '$'.number_format(static::grandTotal([
-                            'include_rent' => $get('include_rent'),
-                            'monthly_rent' => $get('monthly_rent'),
-                            'readings' => $get('readings'),
-                            'extra_charge' => $get('extra_charge'),
-                        ]), 2)),
+                        ->content(fn (Get $get) => Money::format(
+                            static::grandTotal([
+                                'include_rent' => $get('include_rent'),
+                                'monthly_rent' => $get('monthly_rent'),
+                                'readings' => $get('readings'),
+                                'extra_charge' => $get('extra_charge'),
+                            ]),
+                            Money::forUnitId($get('unit_id')),
+                        )),
                     Forms\Components\Textarea::make('notes')->columnSpanFull(),
                 ]),
         ];
@@ -198,6 +208,7 @@ trait BuildsInvoiceForm
                 'rate' => (string) $util->rate,
                 'billing_type' => $util->billing_type->value,
                 'unit_of_measure' => $util->unit_of_measure,
+                'requires_reading' => $util->requiresReading(),
                 'is_waived' => UtilityWaiver::isWaivedFor($util->id, $unit->activeRental?->id, $unit->id),
                 'old_reading' => (string) ($old ?? 0),
                 'new_reading' => null,
@@ -217,10 +228,10 @@ trait BuildsInvoiceForm
 
     protected static function meterHint(array $row): string
     {
-        $rate = number_format((float) ($row['rate'] ?? 0), 2);
+        $rate = (float) ($row['rate'] ?? 0);
         $uom = $row['unit_of_measure'] ?? '';
 
-        return __('Rate').': $'.$rate.($uom ? ' / '.$uom : '');
+        return __('Rate').': '.Money::activeFormat($rate, 2).($uom ? ' / '.$uom : '');
     }
 
     /** Whether this reading row is waived (truthy across bool/int/"1"/"true" shapes). */
@@ -233,10 +244,10 @@ trait BuildsInvoiceForm
     protected static function chargeLabel(array $row): string
     {
         if (static::isWaivedRow($row)) {
-            return __('Waived').' · $0.00';
+            return __('Waived').' · '.Money::activeFormat(0);
         }
 
-        return '$'.number_format(static::rowAmount($row), 2);
+        return Money::activeFormat(static::rowAmount($row));
     }
 
     /** Charge for one reading row — mirrors UtilityBillingService::resolveCharge. */
@@ -244,6 +255,10 @@ trait BuildsInvoiceForm
     {
         if (static::isWaivedRow($row)) {
             return 0.0;
+        }
+
+        if (! (bool) ($row['requires_reading'] ?? true)) {
+            return round((float) ($row['rate'] ?? 0), 2);
         }
 
         $rate = (float) ($row['rate'] ?? 0);

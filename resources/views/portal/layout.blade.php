@@ -5,6 +5,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <meta name="csrf-token" content="{{ csrf_token() }}">
     <title>{{ $title ?? __('ngeay juol') }}</title>
+    <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
     <link rel="icon" href="{{ asset('Khmer%20House%20Key.svg') }}" type="image/svg+xml">
     <script src="https://cdn.tailwindcss.com"></script>
 </head>
@@ -15,14 +16,26 @@
                 <img src="{{ asset('Khmer%20House%20Key.svg') }}" alt="{{ __('ngeay juol') }}" class="h-7 w-7 rounded">
                 {{ __('ngeay juol') }}
             </a>
-            @auth
-                <form method="POST" action="{{ route('portal.logout') }}">
-                    @csrf
-                    <button class="rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium hover:bg-emerald-800">
-                        {{ __('Log out') }}
-                    </button>
-                </form>
-            @endauth
+            <div class="flex items-center gap-2.5">
+                @php
+                    $currentLocale = app()->getLocale();
+                    $nextLocale = $currentLocale === 'en' ? 'km' : 'en';
+                    $fullName = $nextLocale === 'en' ? 'English' : 'ខ្មែរ';
+                @endphp
+                <a href="{{ route('locale.switch', $nextLocale) }}"
+                   class="rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium hover:bg-emerald-800 transition-colors"
+                   title="{{ __('Switch to') }} {{ $fullName }}">
+                    {{ $nextLocale === 'en' ? 'EN' : 'ខ្មែរ' }}
+                </a>
+                @auth
+                    <form method="POST" action="{{ route('portal.logout') }}" class="inline">
+                        @csrf
+                        <button class="rounded bg-emerald-700 px-3 py-1.5 text-sm font-medium hover:bg-emerald-800">
+                            {{ __('Log out') }}
+                        </button>
+                    </form>
+                @endauth
+            </div>
         </div>
     </header>
 

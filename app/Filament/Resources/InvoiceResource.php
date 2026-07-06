@@ -10,6 +10,7 @@ use App\Filament\Resources\InvoiceResource\Pages;
 use App\Filament\Resources\InvoiceResource\RelationManagers;
 use App\Models\Invoice;
 use App\Support\ActiveProperty;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Notifications\Notification;
@@ -70,11 +71,11 @@ class InvoiceResource extends Resource
                     Forms\Components\Hidden::make('due_date')
                         ->default(fn () => now()->endOfMonth()->addDays(7)),
                     Forms\Components\TextInput::make('amount_due')
-                        ->numeric()->prefix('$')
+                        ->numeric()->prefix(fn () => Money::activeSymbol())
                         ->helperText(__('Computed from line items.'))
                         ->disabled()->dehydrated(false),
                     Forms\Components\TextInput::make('amount_paid')
-                        ->numeric()->prefix('$')
+                        ->numeric()->prefix(fn () => Money::activeSymbol())
                         ->helperText(__('Computed from the payments ledger.'))
                         ->disabled()->dehydrated(false),
                     Forms\Components\Textarea::make('notes')->columnSpanFull(),
@@ -106,9 +107,14 @@ class InvoiceResource extends Resource
                             })
                     ),
                 Tables\Columns\TextColumn::make('tenant.name')->label(__('Tenant'))->searchable(),
-                Tables\Columns\TextColumn::make('amount_due')->money('USD')->sortable(),
-                Tables\Columns\TextColumn::make('amount_paid')->money('USD'),
-                Tables\Columns\TextColumn::make('balance')->money('USD')->state(fn (Invoice $r) => $r->balance),
+                Tables\Columns\TextColumn::make('amount_due')
+                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatForRecord($state, $record))
+                    ->sortable(),
+                Tables\Columns\TextColumn::make('amount_paid')
+                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatForRecord($state, $record)),
+                Tables\Columns\TextColumn::make('balance')
+                    ->state(fn (Invoice $r) => $r->balance)
+                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatForRecord($state, $record)),
                 Tables\Columns\TextColumn::make('payment_status')->badge()
                     // Click the status to manage payments: add when owing, or edit
                     // existing payments once paid.
@@ -226,9 +232,9 @@ class InvoiceResource extends Resource
             ->icon('heroicon-o-banknotes')
             ->color(fn (Invoice $record) => $record->balance > 0 ? 'success' : 'gray')
             ->modalHeading(fn (Invoice $record) => __('Payments').' · '.$record->invoice_number)
-            ->modalDescription(fn (Invoice $record) => __('Total').': $'.number_format((float) $record->amount_due, 2)
-                .' · '.__('Paid').': $'.number_format((float) $record->amount_paid, 2)
-                .' · '.__('Balance').': $'.number_format((float) $record->balance, 2))
+            ->modalDescription(fn (Invoice $record) => __('Total').': '.Money::formatForRecord($record->amount_due, $record)
+                .' · '.__('Paid').': '.Money::formatForRecord($record->amount_paid, $record)
+                .' · '.__('Balance').': '.Money::formatForRecord($record->balance, $record))
             ->modalSubmitActionLabel(__('Save'))
             // Existing payments become repeater rows; seed one row when nothing is
             // paid yet so "record a payment" stays one click.
@@ -254,11 +260,11 @@ class InvoiceResource extends Resource
                     ->hiddenLabel()
                     ->addActionLabel(__('Add payment'))
                     ->defaultItems(0)
-                    ->itemLabel(fn (array $state) => ($state['amount'] ? '$'.number_format((float) $state['amount'], 2) : __('New payment'))
+                    ->itemLabel(fn (array $state) => ($state['amount'] ? Money::activeFormat($state['amount']) : __('New payment'))
                         .($state['paid_at'] ?? null ? ' · '.\Illuminate\Support\Carbon::parse($state['paid_at'])->format('d M Y') : ''))
                     ->schema([
                         Forms\Components\Hidden::make('id'),
-                        Forms\Components\TextInput::make('amount')->numeric()->prefix('$')->required()->minValue(0.01),
+                        Forms\Components\TextInput::make('amount')->numeric()->prefix(fn () => Money::activeSymbol())->required()->minValue(0.01),
                         Forms\Components\DateTimePicker::make('paid_at')->label(__('Paid at'))->default(now())->required(),
                         Forms\Components\Select::make('method')->label(__('Method'))->options(PaymentMethod::class)->default(PaymentMethod::Cash)->required(),
                         Forms\Components\TextInput::make('transaction_ref')->label(__('Transaction ref')),
@@ -274,8 +280,8 @@ class InvoiceResource extends Resource
                 $record->refresh();
                 Notification::make()
                     ->title(__('Payments updated'))
-                    ->body(__('Paid').': $'.number_format((float) $record->amount_paid, 2)
-                        .' · '.__('Balance').': $'.number_format((float) $record->balance, 2)
+                    ->body(__('Paid').': '.Money::formatForRecord($record->amount_paid, $record)
+                        .' · '.__('Balance').': '.Money::formatForRecord($record->balance, $record)
                         .' · '.$record->payment_status->getLabel())
                     ->success()->send();
             });

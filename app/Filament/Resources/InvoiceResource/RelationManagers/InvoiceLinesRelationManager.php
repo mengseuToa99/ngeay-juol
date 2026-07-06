@@ -3,6 +3,7 @@
 namespace App\Filament\Resources\InvoiceResource\RelationManagers;
 
 use App\Enums\InvoiceLineType;
+use App\Support\Money;
 use Filament\Forms;
 use Filament\Forms\Form;
 use Filament\Resources\RelationManagers\RelationManager;
@@ -24,8 +25,8 @@ class InvoiceLinesRelationManager extends RelationManager
                 ->required(),
             Forms\Components\TextInput::make('description')->required(),
             Forms\Components\TextInput::make('quantity')->numeric(),
-            Forms\Components\TextInput::make('unit_price')->numeric()->prefix('$'),
-            Forms\Components\TextInput::make('amount')->numeric()->prefix('$')->required(),
+            Forms\Components\TextInput::make('unit_price')->numeric()->prefix(fn () => Money::activeSymbol()),
+            Forms\Components\TextInput::make('amount')->numeric()->prefix(fn () => Money::activeSymbol())->required(),
             Forms\Components\Toggle::make('is_waived'),
         ])->columns(2);
     }
@@ -38,8 +39,10 @@ class InvoiceLinesRelationManager extends RelationManager
                 Tables\Columns\TextColumn::make('line_type')->badge(),
                 Tables\Columns\TextColumn::make('description')->wrap(),
                 Tables\Columns\TextColumn::make('quantity'),
-                Tables\Columns\TextColumn::make('unit_price')->money('USD'),
-                Tables\Columns\TextColumn::make('amount')->money('USD'),
+                Tables\Columns\TextColumn::make('unit_price')
+                    ->formatStateUsing(fn ($state, $record) => Money::formatForRecord($state, $record)),
+                Tables\Columns\TextColumn::make('amount')
+                    ->formatStateUsing(fn ($state, $record) => Money::formatForRecord($state, $record)),
                 Tables\Columns\IconColumn::make('is_waived')->boolean(),
             ])
             ->headerActions([
