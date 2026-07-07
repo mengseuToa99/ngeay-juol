@@ -31,6 +31,17 @@ class Invoice extends Model
         'tenant_id',
         'invoice_number',
         'amount_due',
+        'usd_khr_rate',
+        'exchange_rate_source',
+        'exchange_rate_date',
+        'exchange_rate_fetched_at',
+        'exchange_rate_note',
+        'total_usd',
+        'total_khr',
+        'native_usd_total',
+        'native_khr_total',
+        'paid_usd',
+        'paid_khr',
         'period_start',
         'period_end',
         'issue_date',
@@ -44,6 +55,15 @@ class Invoice extends Model
         return [
             'amount_due' => 'decimal:2',
             'amount_paid' => 'decimal:2',
+            'usd_khr_rate' => 'decimal:4',
+            'exchange_rate_date' => 'date',
+            'exchange_rate_fetched_at' => 'datetime',
+            'total_usd' => 'decimal:2',
+            'total_khr' => 'decimal:0',
+            'native_usd_total' => 'decimal:2',
+            'native_khr_total' => 'decimal:0',
+            'paid_usd' => 'decimal:2',
+            'paid_khr' => 'decimal:0',
             'period_start' => 'date',
             'period_end' => 'date',
             'issue_date' => 'date',
@@ -70,21 +90,53 @@ class Invoice extends Model
      */
     public function recordPayment(array $attributes): Payment
     {
-        return DB::transaction(fn () => $this->payments()->create([
-            'recorded_by_id' => $attributes['recorded_by_id'] ?? Auth::id(),
-            'amount' => $attributes['amount'],
-            'paid_at' => $attributes['paid_at'] ?? now(),
-            'method' => $attributes['method'] ?? PaymentMethod::Cash,
-            'transaction_ref' => $attributes['transaction_ref'] ?? null,
-            'receipt_number' => $attributes['receipt_number'] ?? null,
-            'note' => $attributes['note'] ?? null,
-        ]));
+        return DB::transaction(function () use ($attributes) {
+            $currency = \App\Support\Money::normalize($attributes['currency'] ?? ($this->property?->settings?->currency ?? 'USD'));
+            $amount = (float) $attributes['amount'];
+            
+            // conversion rate is the invoice's saved rate
+            $rate = (float) ($this->usd_khr_rate ?: ($this->property?->settings?->usd_khr_exchange_rate ?: 4000));
+            
+            $amountUsd = 0.0;
+            $amountKhr = 0.0;
+            if ($currency === 'USD') {
+                $amountUsd = $amount;
+                $amountKhr = round($amountUsd * $rate, 0);
+            } else { // KHR
+                $amountKhr = round($amount, 0);
+                $amountUsd = $rate > 0 ? round($amountKhr / $rate, 2) : 0.0;
+            }
+
+            return $this->payments()->create([
+                'recorded_by_id' => $attributes['recorded_by_id'] ?? Auth::id(),
+                'amount' => $amount,
+                'currency' => $currency,
+                'amount_usd' => $amountUsd,
+                'amount_khr' => $amountKhr,
+                'exchange_rate' => $rate,
+                'exchange_rate_source' => $this->exchange_rate_source ?: 'invoice_snapshot',
+                'paid_at' => $attributes['paid_at'] ?? now(),
+                'method' => $attributes['method'] ?? PaymentMethod::Cash,
+                'transaction_ref' => $attributes['transaction_ref'] ?? null,
+                'receipt_number' => $attributes['receipt_number'] ?? null,
+                'note' => $attributes['note'] ?? null,
+            ]);
+        });
     }
 
     /** Recompute amount_paid (from the ledger) and payment_status. */
     public function recalculateFromLedger(): void
     {
-        $this->amount_paid = (string) $this->payments()->sum('amount');
+        $this->paid_usd = (string) $this->payments()->sum('amount_usd');
+        $this->paid_khr = (string) $this->payments()->sum('amount_khr');
+
+        $reportingCurrency = \App\Support\Money::normalize($this->property?->settings?->currency ?? 'USD');
+        if ($reportingCurrency === 'KHR') {
+            $this->amount_paid = $this->paid_khr;
+        } else {
+            $this->amount_paid = $this->paid_usd;
+        }
+
         $this->payment_status = $this->resolvePaymentStatus();
         $this->saveQuietly();
     }
@@ -92,7 +144,18 @@ class Invoice extends Model
     /** Recompute amount_due from the line items, then re-resolve status. */
     public function recalculateAmountDue(): void
     {
-        $this->amount_due = (string) $this->lines()->sum('amount');
+        $this->total_usd = (string) $this->lines()->sum('amount_usd');
+        $this->total_khr = (string) $this->lines()->sum('amount_khr');
+        $this->native_usd_total = (string) $this->lines()->where('currency', 'USD')->sum('amount');
+        $this->native_khr_total = (string) $this->lines()->where('currency', 'KHR')->sum('amount');
+
+        $reportingCurrency = \App\Support\Money::normalize($this->property?->settings?->currency ?? 'USD');
+        if ($reportingCurrency === 'KHR') {
+            $this->amount_due = $this->total_khr;
+        } else {
+            $this->amount_due = $this->total_usd;
+        }
+
         $this->payment_status = $this->resolvePaymentStatus();
         $this->saveQuietly();
     }
@@ -103,10 +166,18 @@ class Invoice extends Model
             return InvoiceStatus::Cancelled; // terminal & sticky
         }
 
-        $due = (float) $this->amount_due;
-        $paid = (float) $this->amount_paid;
+        $totalUsd = (float) ($this->total_usd ?? 0);
+        $paidUsd = (float) ($this->paid_usd ?? 0);
+        $totalKhr = (float) ($this->total_khr ?? 0);
+        $paidKhr = (float) ($this->paid_khr ?? 0);
 
-        if ($paid <= 0.0) {
+        // fallback to amount_due / amount_paid if totals are not set yet (old invoices)
+        if ($totalUsd <= 0.0 && $totalKhr <= 0.0) {
+            $totalUsd = (float) $this->amount_due;
+            $paidUsd = (float) $this->amount_paid;
+        }
+
+        if ($paidUsd <= 0.0 && $paidKhr <= 0.0) {
             if ($this->payment_status === InvoiceStatus::Draft) {
                 return InvoiceStatus::Draft;
             }
@@ -116,7 +187,7 @@ class Invoice extends Model
                 : InvoiceStatus::Pending;
         }
 
-        if ($paid + 0.001 >= $due) {
+        if (($totalUsd > 0 && $paidUsd + 0.005 >= $totalUsd) || ($totalKhr > 0 && $paidKhr + 0.5 >= $totalKhr)) {
             return InvoiceStatus::Paid;
         }
 
@@ -128,6 +199,56 @@ class Invoice extends Model
         return Attribute::make(
             get: fn () => round((float) $this->amount_due - (float) $this->amount_paid, 2),
         );
+    }
+
+    public function getBalanceUsdAttribute(): float
+    {
+        $totalUsd = $this->total_usd;
+        $paidUsd = $this->paid_usd;
+        if ($totalUsd === null) {
+            $rate = (float) ($this->usd_khr_rate ?: ($this->property?->settings?->usd_khr_exchange_rate ?: 4000));
+            $reportingCurrency = \App\Support\Money::normalize($this->property?->settings?->currency ?? 'USD');
+            if ($reportingCurrency === 'USD') {
+                $totalUsd = (float) $this->amount_due;
+            } else {
+                $totalUsd = $rate > 0 ? round((float) $this->amount_due / $rate, 2) : 0.0;
+            }
+        }
+        if ($paidUsd === null) {
+            $rate = (float) ($this->usd_khr_rate ?: ($this->property?->settings?->usd_khr_exchange_rate ?: 4000));
+            $reportingCurrency = \App\Support\Money::normalize($this->property?->settings?->currency ?? 'USD');
+            if ($reportingCurrency === 'USD') {
+                $paidUsd = (float) $this->amount_paid;
+            } else {
+                $paidUsd = $rate > 0 ? round((float) $this->amount_paid / $rate, 2) : 0.0;
+            }
+        }
+        return round(max(0.0, (float) $totalUsd - (float) $paidUsd), 2);
+    }
+
+    public function getBalanceKhrAttribute(): float
+    {
+        $totalKhr = $this->total_khr;
+        $paidKhr = $this->paid_khr;
+        if ($totalKhr === null) {
+            $rate = (float) ($this->usd_khr_rate ?: ($this->property?->settings?->usd_khr_exchange_rate ?: 4000));
+            $reportingCurrency = \App\Support\Money::normalize($this->property?->settings?->currency ?? 'USD');
+            if ($reportingCurrency === 'KHR') {
+                $totalKhr = (float) $this->amount_due;
+            } else {
+                $totalKhr = round((float) $this->amount_due * $rate, 0);
+            }
+        }
+        if ($paidKhr === null) {
+            $rate = (float) ($this->usd_khr_rate ?: ($this->property?->settings?->usd_khr_exchange_rate ?: 4000));
+            $reportingCurrency = \App\Support\Money::normalize($this->property?->settings?->currency ?? 'USD');
+            if ($reportingCurrency === 'KHR') {
+                $paidKhr = (float) $this->amount_paid;
+            } else {
+                $paidKhr = round((float) $this->amount_paid * $rate, 0);
+            }
+        }
+        return round(max(0.0, (float) $totalKhr - (float) $paidKhr), 0);
     }
 
     // ---------------------------------------------------------------------

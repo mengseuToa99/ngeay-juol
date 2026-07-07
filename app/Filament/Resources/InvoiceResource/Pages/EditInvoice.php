@@ -67,6 +67,7 @@ class EditInvoice extends EditRecord
                     'utility_usage_id' => $usage?->id,
                     'utility_name' => $util?->name ?? $line->description,
                     'rate' => (string) ($util?->rate ?? $line->unit_price),
+                    'currency' => $line->currency ?: 'USD',
                     'billing_type' => $util?->billing_type->value ?? BillingType::Metered->value,
                     'unit_of_measure' => $util?->unit_of_measure,
                     'requires_reading' => $util?->requiresReading() ?? true,
@@ -77,6 +78,19 @@ class EditInvoice extends EditRecord
             })
             ->values()
             ->all();
+
+        $adhocLine = $invoice->lines->firstWhere('line_type', InvoiceLineType::AdHoc);
+        if ($adhocLine) {
+            $data['has_extra_charge'] = true;
+            $data['extra_charge'] = (string) $adhocLine->amount;
+            $data['extra_charge_currency'] = $adhocLine->currency;
+            $data['extra_charge_description'] = $adhocLine->description;
+        } else {
+            $data['has_extra_charge'] = false;
+            $data['extra_charge'] = '0';
+            $data['extra_charge_currency'] = 'USD';
+            $data['extra_charge_description'] = null;
+        }
 
         return $data;
     }
@@ -97,18 +111,38 @@ class EditInvoice extends EditRecord
 
             // 2. Rent line — upsert or remove to match the "charge rent" toggle.
             $rentLine = $record->lines()->where('line_type', InvoiceLineType::Rent)->first();
+            $rate = (float) ($record->usd_khr_rate ?: ($record->property?->settings?->usd_khr_exchange_rate ?: 4000));
+            $lineRate = $rate;
+
             if ($data['include_rent'] ?? true) {
                 $rent = (float) ($data['monthly_rent'] ?? 0);
+                $rentCurrency = $record->rental?->monthly_rent_currency ?: 'USD';
+                
+                $rentUsd = \App\Support\Money::convert($rent, $rentCurrency, 'USD', $lineRate);
+                $rentKhr = \App\Support\Money::convert($rent, $rentCurrency, 'KHR', $lineRate);
+                $rentUnitPriceUsd = \App\Support\Money::convert($rent, $rentCurrency, 'USD', $lineRate, 4);
+                $rentUnitPriceKhr = \App\Support\Money::convert($rent, $rentCurrency, 'KHR', $lineRate, 4);
+
+                $payload = [
+                    'unit_price' => $rent,
+                    'amount' => $rent,
+                    'currency' => $rentCurrency,
+                    'unit_price_currency' => $rentCurrency,
+                    'amount_usd' => $rentUsd,
+                    'amount_khr' => $rentKhr,
+                    'unit_price_usd' => $rentUnitPriceUsd,
+                    'unit_price_khr' => $rentUnitPriceKhr,
+                    'exchange_rate' => $rate,
+                ];
+
                 if ($rentLine) {
-                    $rentLine->update(['unit_price' => $rent, 'amount' => $rent]);
+                    $rentLine->update($payload);
                 } else {
-                    $record->lines()->create([
+                    $record->lines()->create(array_merge($payload, [
                         'line_type' => InvoiceLineType::Rent,
                         'description' => 'Monthly rent',
                         'quantity' => 1,
-                        'unit_price' => $rent,
-                        'amount' => $rent,
-                    ]);
+                    ]));
                 }
             } elseif ($rentLine) {
                 $rentLine->delete();
@@ -140,6 +174,14 @@ class EditInvoice extends EditRecord
                 ]);
 
                 $charge = UtilityBillingService::resolveCharge($usage->fresh('propertyUtility'));
+                $utilityCurrency = \App\Support\Money::normalize($charge['currency'] ?? 'USD');
+                $chargeAmount = (float) $charge['amount'];
+                $chargeRate = (float) $charge['rate'];
+
+                $chargeUsd = \App\Support\Money::convert($chargeAmount, $utilityCurrency, 'USD', $lineRate);
+                $chargeKhr = \App\Support\Money::convert($chargeAmount, $utilityCurrency, 'KHR', $lineRate);
+                $chargeUnitPriceUsd = \App\Support\Money::convert($chargeRate, $utilityCurrency, 'USD', $lineRate, 4);
+                $chargeUnitPriceKhr = \App\Support\Money::convert($chargeRate, $utilityCurrency, 'KHR', $lineRate, 4);
 
                 $line = $record->lines()
                     ->where('line_type', InvoiceLineType::Utility)
@@ -151,7 +193,51 @@ class EditInvoice extends EditRecord
                     'unit_price' => $charge['rate'],
                     'amount' => $charge['amount'],
                     'is_waived' => $charge['is_waived'],
+                    'currency' => $utilityCurrency,
+                    'unit_price_currency' => $utilityCurrency,
+                    'amount_usd' => $chargeUsd,
+                    'amount_khr' => $chargeKhr,
+                    'unit_price_usd' => $chargeUnitPriceUsd,
+                    'unit_price_khr' => $chargeUnitPriceKhr,
+                    'exchange_rate' => $rate,
                 ]);
+            }
+
+            // 3.5 Ad-hoc line
+            $adhocLine = $record->lines()->where('line_type', InvoiceLineType::AdHoc)->first();
+            if ($data['has_extra_charge'] ?? false) {
+                $amount = (float) ($data['extra_charge'] ?? 0);
+                $adhocCurrency = $data['extra_charge_currency'] ?? 'USD';
+                $desc = $data['extra_charge_description'] ?? __('Extra charge');
+
+                $adhocUsd = \App\Support\Money::convert($amount, $adhocCurrency, 'USD', $lineRate);
+                $adhocKhr = \App\Support\Money::convert($amount, $adhocCurrency, 'KHR', $lineRate);
+                $adhocUnitPriceUsd = \App\Support\Money::convert($amount, $adhocCurrency, 'USD', $lineRate, 4);
+                $adhocUnitPriceKhr = \App\Support\Money::convert($amount, $adhocCurrency, 'KHR', $lineRate, 4);
+
+                $payload = [
+                    'description' => $desc,
+                    'amount' => $amount,
+                    'unit_price' => $amount,
+                    'currency' => $adhocCurrency,
+                    'unit_price_currency' => $adhocCurrency,
+                    'amount_usd' => $adhocUsd,
+                    'amount_khr' => $adhocKhr,
+                    'unit_price_usd' => $adhocUnitPriceUsd,
+                    'unit_price_khr' => $adhocUnitPriceKhr,
+                    'exchange_rate' => $rate,
+                ];
+
+                if ($adhocLine) {
+                    $adhocLine->update($payload);
+                } else {
+                    $record->lines()->create(array_merge($payload, [
+                        'line_type' => InvoiceLineType::AdHoc,
+                        'quantity' => 1,
+                    ]));
+                }
+            } elseif ($adhocLine) {
+                $adhocLine->delete();
             }
 
             // 4. Re-derive amount_due + status from the rewritten lines.

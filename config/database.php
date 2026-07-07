@@ -97,6 +97,7 @@ return [
             'prefix_indexes' => true,
             'search_path' => 'public',
             'sslmode' => env('DB_SSLMODE', 'prefer'),
+            'rds_iam' => env('DB_RDS_IAM', false),
         ],
 
         'sqlsrv' => [

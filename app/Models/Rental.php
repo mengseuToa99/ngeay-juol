@@ -44,7 +44,9 @@ class Rental extends Model implements HasMedia
         'guarantor_address',
         'unit_id',
         'monthly_rent',
+        'monthly_rent_currency',
         'security_deposit',
+        'security_deposit_currency',
         'lease_agreement',
         'terms_conditions',
         'notes',
@@ -83,6 +85,23 @@ class Rental extends Model implements HasMedia
 
     protected static function booted(): void
     {
+        static::creating(function (Rental $rental) {
+            if ($rental->unit_id) {
+                $unit = Unit::withoutGlobalScopes()->find($rental->unit_id);
+                if ($unit) {
+                    if (empty($rental->monthly_rent_currency)) {
+                        $rental->monthly_rent_currency = $unit->rent_currency ?: 'USD';
+                    }
+                }
+            }
+            if (empty($rental->monthly_rent_currency)) {
+                $rental->monthly_rent_currency = 'USD';
+            }
+            if (empty($rental->security_deposit_currency)) {
+                $rental->security_deposit_currency = $rental->monthly_rent_currency;
+            }
+        });
+
         // Keep the denormalized property_id in sync with the unit's property.
         static::saving(function (Rental $rental) {
             if ($rental->unit_id && (empty($rental->property_id) || $rental->isDirty('unit_id'))) {
@@ -245,5 +264,10 @@ class Rental extends Model implements HasMedia
     public function maintenanceRequests(): HasMany
     {
         return $this->hasMany(MaintenanceRequest::class);
+    }
+
+    public function chargeRules(): HasMany
+    {
+        return $this->hasMany(ChargeRule::class, 'scope_id')->where('scope_type', 'rental');
     }
 }

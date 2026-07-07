@@ -362,7 +362,50 @@
                                         <!-- Metred Utilities -->
                                         @foreach($room['utilities'] as $utilityIndex => $utility)
                                             @php($preview = $this->utilityPreview($index, $utilityIndex))
+                                            @php($state = $utility['state_override'] ?? 'normal')
                                             <td class="px-4 py-3">
+                                                <div class="mb-2 flex flex-wrap items-center gap-1">
+                                                    <span class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                                        {{ \App\Services\ChargeRuleResolver::stateLabel((string) $state) }}
+                                                    </span>
+                                                    <span class="inline-flex items-center rounded-md bg-gray-50 px-1.5 py-0.5 text-[9px] font-semibold text-gray-500 dark:bg-gray-800/70 dark:text-gray-400">
+                                                        {{ $utility['source_scope_label'] ?? __('Inherited from property') }}
+                                                    </span>
+                                                </div>
+                                                <select
+                                                    wire:model.live="rooms.{{ $index }}.utilities.{{ $utilityIndex }}.state_override"
+                                                    class="mb-2 w-full rounded-lg border-gray-300 bg-white px-2 py-1 text-[10px] shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                                >
+                                                    <option value="normal">{{ __('Normal') }}</option>
+                                                    <option value="free">{{ __('Free') }}</option>
+                                                    <option value="waived">{{ __('Waived') }}</option>
+                                                    <option value="not_applicable">{{ __('Not applicable') }}</option>
+                                                    <option value="skipped_this_cycle">{{ __('Skip this cycle') }}</option>
+                                                    <option value="custom">{{ __('Custom amount') }}</option>
+                                                </select>
+                                                @if($state === 'custom')
+                                                    <div class="mb-2 grid grid-cols-2 gap-1">
+                                                        <input
+                                                            type="number"
+                                                            step="any"
+                                                            wire:model.live="rooms.{{ $index }}.utilities.{{ $utilityIndex }}.override_amount"
+                                                            class="rounded-lg border-gray-300 bg-white px-2 py-1 text-[10px] shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                                            placeholder="{{ __('Amount') }}"
+                                                        >
+                                                        <select
+                                                            wire:model.live="rooms.{{ $index }}.utilities.{{ $utilityIndex }}.override_currency"
+                                                            class="rounded-lg border-gray-300 bg-white px-2 py-1 text-[10px] shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
+                                                        >
+                                                            <option value="USD">USD</option>
+                                                            <option value="KHR">KHR</option>
+                                                        </select>
+                                                    </div>
+                                                @endif
+                                                @if(in_array($state, ['not_applicable', 'skipped_this_cycle'], true))
+                                                    <div class="mb-1 text-[9px] text-gray-500 dark:text-gray-400">
+                                                        {{ __('No reading required') }}
+                                                    </div>
+                                                @endif
                                                 @if($utility['requires_reading'] ?? true)
                                                     <div class="text-[10px] text-gray-500 dark:text-gray-400">
                                                         {{ __('Prev') }}: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $preview['old_reading'] !== null ? $this->formatQuantity($preview['old_reading']) : '—' }}</span>
@@ -374,7 +417,7 @@
                                                         wire:model.live.debounce.300ms="rooms.{{ $index }}.utilities.{{ $utilityIndex }}.new_reading"
                                                         class="w-full rounded-lg border-gray-300 bg-white px-2 py-1 text-xs font-semibold shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                                                         placeholder="{{ __('New') }}"
-                                                        {{ $room['skipped'] ? 'disabled' : '' }}
+                                                        {{ $room['skipped'] || in_array($state, ['not_applicable', 'skipped_this_cycle'], true) ? 'disabled' : '' }}
                                                     >
                                                     @if($preview['is_lower_reading'])
                                                         <div class="mt-1">
@@ -383,23 +426,27 @@
                                                                 wire:model.live.debounce.300ms="rooms.{{ $index }}.utilities.{{ $utilityIndex }}.override_reason"
                                                                 placeholder="{{ __('Reason for lower') }}"
                                                                 class="w-full rounded-md border-amber-300 bg-amber-50/50 px-2 py-0.5 text-[10px] focus:border-amber-500 dark:border-amber-900/30 dark:bg-amber-950/20 text-gray-955 dark:text-white"
-                                                                {{ $room['skipped'] ? 'disabled' : '' }}
+                                                                {{ $room['skipped'] || in_array($state, ['not_applicable', 'skipped_this_cycle'], true) ? 'disabled' : '' }}
                                                             >
                                                         </div>
                                                     @endif
-                                                    @if($preview['amount_used'] !== null && !$room['skipped'])
-                                                        <div class="text-[10px] text-emerald-600 dark:text-emerald-500 mt-1 font-semibold">
-                                                            {{ $this->formatQuantity($preview['amount_used']) }} {{ $utility['unit_of_measure'] }} &middot; {{ $this->formatMoney($preview['charge']) }}
-                                                        </div>
+                                                    @if((bool) ($utility['requires_reading'] ?? true))
+                                                        @if($preview['amount_used'] !== null && !$room['skipped'] && !in_array($state, ['not_applicable', 'skipped_this_cycle'], true))
+                                                            <div class="text-[10px] text-emerald-600 dark:text-emerald-500 mt-1 font-semibold">
+                                                                {{ $this->formatQuantity($preview['amount_used']) }} {{ $utility['unit_of_measure'] }} &middot; {{ \App\Support\Money::format($preview['charge'], $utility['currency'] ?? 'USD') }}
+                                                            </div>
+                                                        @endif
+                                                    @else
+                                                        <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">{{ __('Fixed') }}: {{ \App\Support\Money::format($preview['charge'], $utility['currency'] ?? 'USD') }}</span>
                                                     @endif
                                                 @else
-                                                    <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">{{ __('Fixed') }}: {{ $this->formatMoney($preview['charge']) }}</span>
+                                                    <span class="text-xs text-gray-500 dark:text-gray-400 font-medium">{{ __('Fixed') }}: {{ \App\Support\Money::format($preview['charge'], $utility['currency'] ?? 'USD') }}</span>
                                                 @endif
                                             </td>
                                         @endforeach
                                         <!-- Estimated Invoice Total -->
                                         <td class="px-4 py-3 text-right font-bold text-gray-950 dark:text-white">
-                                            {{ $this->formatMoney($summary['estimated_total']) }}
+                                            {{ $summary['estimated_total_display'] }}
                                         </td>
                                         <!-- Skip / Unskip -->
                                         <td class="px-4 py-3 text-center">
@@ -489,6 +536,45 @@
                             <span class="text-2xl font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">{{ $this->estimatedInvoiceCount() }}</span>
                         </div>
                     </div>
+
+                    <div class="grid gap-3 sm:grid-cols-3">
+                        <div class="rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-800 dark:bg-gray-800/30">
+                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400 block">{{ __('Charges to bill') }}</span>
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                @forelse($summary['charges_to_bill'] as $charge)
+                                    <span class="inline-flex items-center rounded-md bg-emerald-50 px-2 py-0.5 text-[10px] font-semibold text-emerald-700 dark:bg-emerald-500/10 dark:text-emerald-400">
+                                        {{ $charge }}
+                                    </span>
+                                @empty
+                                    <span class="text-[10px] text-gray-500 dark:text-gray-400">{{ __('None') }}</span>
+                                @endforelse
+                            </div>
+                        </div>
+                        <div class="rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-800 dark:bg-gray-800/30">
+                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400 block">{{ __('Free or waived') }}</span>
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                @forelse($summary['free_or_waived'] as $charge)
+                                    <span class="inline-flex items-center rounded-md bg-amber-50 px-2 py-0.5 text-[10px] font-semibold text-amber-700 dark:bg-amber-500/10 dark:text-amber-400">
+                                        {{ $charge }}
+                                    </span>
+                                @empty
+                                    <span class="text-[10px] text-gray-500 dark:text-gray-400">{{ __('None') }}</span>
+                                @endforelse
+                            </div>
+                        </div>
+                        <div class="rounded-lg border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-800 dark:bg-gray-800/30">
+                            <span class="text-xs font-medium text-gray-500 dark:text-gray-400 block">{{ __('Not billed') }}</span>
+                            <div class="mt-2 flex flex-wrap gap-1.5">
+                                @forelse($summary['not_billed'] as $charge)
+                                    <span class="inline-flex items-center rounded-md bg-gray-100 px-2 py-0.5 text-[10px] font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-300">
+                                        {{ $charge }}
+                                    </span>
+                                @empty
+                                    <span class="text-[10px] text-gray-500 dark:text-gray-400">{{ __('None') }}</span>
+                                @endforelse
+                            </div>
+                        </div>
+                    </div>
                 </div>
 
                 <!-- Room Cards -->
@@ -546,13 +632,13 @@
                                 <div class="rounded-lg bg-gray-50/50 p-3 dark:bg-gray-800/30">
                                     <span class="text-xs font-medium text-gray-500 dark:text-gray-400 block">{{ __('Rent') }}</span>
                                     <span class="text-base font-bold text-gray-950 dark:text-white mt-1 block">
-                                        {{ $this->formatMoney($summary['rent']) }}
+                                        {{ \App\Support\Money::format($summary['rent'], $summary['rent_currency'] ?? 'USD') }}
                                     </span>
                                 </div>
                                 <div class="rounded-lg bg-gray-50/50 p-3 dark:bg-gray-800/30">
                                     <span class="text-xs font-medium text-gray-500 dark:text-gray-400 block">{{ __('Estimated total') }}</span>
                                     <span class="text-base font-bold text-emerald-600 dark:text-emerald-400 mt-1 block">
-                                        {{ $this->formatMoney($summary['estimated_total']) }}
+                                        {{ $summary['estimated_total_display'] }}
                                     </span>
                                 </div>
                             </div>
@@ -715,6 +801,19 @@
                                 <span class="font-bold">{{ $this->roomsWithWarningsCount() }}</span>
                             </div>
                         @endif
+                        @php($rateInfo = $this->getExchangeRateInfo())
+                        <div class="border-t border-gray-200 dark:border-gray-700 my-2 pt-2 text-xs space-y-1">
+                            <div class="font-semibold text-gray-700 dark:text-gray-300">
+                                {{ __('Exchange rate for this invoice run') }}:
+                            </div>
+                            <div class="flex justify-between text-gray-600 dark:text-gray-400">
+                                <span>1 USD = {{ number_format($rateInfo['rate'], 0) }} KHR</span>
+                                <span>{{ __('Source') }}: {{ $rateInfo['source'] }} ({{ $rateInfo['date'] }})</span>
+                            </div>
+                            <div class="text-[10px] text-gray-550 dark:text-gray-500 italic">
+                                {{ __('This rate will be saved on each invoice.') }}
+                            </div>
+                        </div>
                     </div>
 
                     <div class="flex flex-col gap-2.5 sm:flex-row sm:justify-end">

@@ -57,36 +57,57 @@ class InvoiceExcelExport
             __('Type'),
             __('Qty'),
             __('Unit price'),
+            __('Currency'),
             __('Amount'),
+            __('Charge state'),
+            __('State reason'),
+            __('Source scope'),
         ], $bold));
 
-        foreach ($invoice->lines as $line) {
-            $description = (string) $line->description;
-            if ($line->is_waived) {
-                $description .= ' '.__('(Waived)');
-            }
-
+        foreach ($invoice->lines->filter(fn ($line) => $line->shouldAppearOnTenantInvoice()) as $line) {
             $writer->addRow(Row::fromValues([
-                $description,
+                (string) $line->description,
                 (string) optional($line->line_type)->getLabel(),
                 (float) $line->quantity,
-                $this->money($line->unit_price),
-                $this->money($line->is_waived ? 0 : $line->amount),
+                (float) $line->unit_price,
+                (string) $line->currency,
+                (float) ($line->isConcessionState() ? 0 : $line->amount),
+                (string) $line->resolvedChargeStateLabel(),
+                (string) $line->resolvedChargeStateReason(),
+                (string) $line->sourceScopeLabel(),
             ]));
         }
 
         // --- Totals ------------------------------------------------------
         $writer->addRow(Row::fromValues([]));
-        $writer->addRow($this->total(__('Subtotal'), $invoice->amount_due, $bold));
-        $writer->addRow($this->total(__('Total due'), $invoice->amount_due, $bold));
-        $writer->addRow($this->total(__('Paid'), $invoice->amount_paid, $bold));
-        $writer->addRow($this->total(__('Balance'), $invoice->balance, $bold));
+
+        if ($invoice->usd_khr_rate > 0) {
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('USD charges'), (float) $invoice->native_usd_total]));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('KHR charges'), (float) $invoice->native_khr_total]));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Total USD'), (float) $invoice->total_usd], $bold));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Equivalent KHR'), (float) $invoice->total_khr]));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Paid USD'), (float) $invoice->paid_usd]));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Paid KHR'), (float) $invoice->paid_khr]));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Balance USD'), (float) $invoice->balance_usd], $bold));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Balance KHR'), (float) $invoice->balance_khr], $bold));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Exchange rate'), (float) $invoice->usd_khr_rate]));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Rate source/date'), ($invoice->exchange_rate_source ? __($invoice->exchange_rate_source) : '') . ($invoice->exchange_rate_date ? ' (' . $this->date($invoice->exchange_rate_date) . ')' : '')]));
+        } else {
+            $writer->addRow($this->total(__('Subtotal'), $invoice->amount_due, $bold));
+            $writer->addRow($this->total(__('Total due'), $invoice->amount_due, $bold));
+            $writer->addRow($this->total(__('Paid'), $invoice->amount_paid, $bold));
+            $writer->addRow($this->total(__('Balance'), $invoice->balance, $bold));
+            $writer->addRow(Row::fromValues(['', '', '', '', '', __('Exchange-rate snapshot unavailable'), '']));
+        }
 
         // --- Payments ----------------------------------------------------
         $writer->addRow(Row::fromValues([]));
         $writer->addRow(Row::fromValues([
             __('Date'),
             __('Amount'),
+            __('Currency'),
+            __('USD amount'),
+            __('KHR amount'),
             __('Method'),
             __('Receipt'),
         ], $bold));
@@ -94,7 +115,10 @@ class InvoiceExcelExport
         foreach ($invoice->payments as $payment) {
             $writer->addRow(Row::fromValues([
                 $this->date($payment->paid_at),
-                $this->money($payment->amount),
+                (float) $payment->amount,
+                (string) $payment->currency,
+                (float) $payment->amount_usd,
+                (float) $payment->amount_khr,
                 (string) optional($payment->method)->getLabel(),
                 (string) $payment->receipt_number,
             ]));
@@ -116,7 +140,7 @@ class InvoiceExcelExport
      */
     private function total(string $label, mixed $amount, Style $style): Row
     {
-        return Row::fromValues(['', '', '', $label, $this->money($amount)], $style);
+        return Row::fromValues(['', '', '', '', '', $label, $this->money($amount)], $style);
     }
 
     /**

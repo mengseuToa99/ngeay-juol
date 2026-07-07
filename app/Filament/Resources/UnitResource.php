@@ -80,7 +80,21 @@ class UnitResource extends Resource implements HasShieldPermissions
             Forms\Components\TextInput::make('room_number')->required(),
             Forms\Components\TextInput::make('floor_number'),
             Forms\Components\TextInput::make('room_type')->required(),
-            Forms\Components\TextInput::make('rent_amount')->numeric()->prefix(fn () => Money::activeSymbol())->required(),
+            Forms\Components\Grid::make(2)
+                ->schema([
+                    Forms\Components\TextInput::make('rent_amount')
+                        ->label(__('Rent amount'))
+                        ->numeric()
+                        ->required(),
+                    Forms\Components\Select::make('rent_currency')
+                        ->label(__('Currency'))
+                        ->options([
+                            'USD' => 'USD ($)',
+                            'KHR' => 'KHR (៛)',
+                        ])
+                        ->default(fn () => ActiveProperty::id() ? Money::forPropertyId(ActiveProperty::id()) : 'USD')
+                        ->required(),
+                ]),
             Forms\Components\DatePicker::make('due_date'),
             Forms\Components\Select::make('status')->options(UnitStatus::class)->default(UnitStatus::Available)->required(),
             Forms\Components\Textarea::make('description')->columnSpanFull(),
@@ -538,6 +552,7 @@ class UnitResource extends Resource implements HasShieldPermissions
                         'floor_number' => (string) ($row['floor'] ?? ''),
                         'room_type' => $data['room_type'] ?? 'Room',
                         'rent_amount' => (float) ($row['price'] ?? 0),
+                        'rent_currency' => Money::forPropertyId($property->id),
                         'status' => UnitStatus::Available,
                     ]);
                     $existing[] = $number;
@@ -639,6 +654,7 @@ class UnitResource extends Resource implements HasShieldPermissions
             UnitResource\RelationManagers\RentalsRelationManager::class,
             UnitResource\RelationManagers\InvoicesRelationManager::class,
             UnitResource\RelationManagers\UtilityUsageRelationManager::class,
+            \App\Filament\Resources\PropertyUtilityResource\RelationManagers\ChargeRulesRelationManager::class,
         ];
     }
 

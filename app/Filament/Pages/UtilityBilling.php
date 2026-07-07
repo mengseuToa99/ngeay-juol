@@ -14,6 +14,7 @@ use App\Models\PropertyUtility;
 use App\Models\Rental;
 use App\Models\UtilityUsage;
 use App\Services\InvoiceBuilderService;
+use App\Services\ChargeRuleResolver;
 use App\Services\SubscriptionService;
 use App\Services\UtilityBillingService;
 use App\Support\ActiveProperty;
@@ -29,11 +30,6 @@ use Illuminate\Support\Str;
 
 /**
  * Desktop-first utility-only billing workspace.
- *
- * Mirrors the {@see MonthlyBilling} wizard flow (property picker → reading →
- * review → result) but generates invoices that contain only metered/shared
- * utility charges — no rent line. Due detection and schedule advancement share
- * the same {@see Rental::$next_invoice_date} field as monthly billing.
  */
 class UtilityBilling extends Page
 {
@@ -69,6 +65,10 @@ class UtilityBilling extends Page
 
     public bool $creatingInvoices = false;
 
+    public string $rowFilter = 'all';
+
+    public string $search = '';
+
     public array $resultSummary = [
         'created' => 0,
         'skipped' => 0,
@@ -77,9 +77,6 @@ class UtilityBilling extends Page
         'failures' => [],
     ];
 
-    /**
-     * Navigation badge: active rentals due for billing across visible properties.
-     */
     public static function getNavigationBadge(): ?string
     {
         $landlordId = auth()->user()?->effectiveLandlordId();
@@ -169,7 +166,6 @@ class UtilityBilling extends Page
             ->get();
     }
 
-    /** @return array<int, int> */
     protected function visiblePropertyIds(): array
     {
         return $this->visibleProperties()->pluck('id')->map(fn ($id) => (int) $id)->all();
@@ -272,65 +268,9 @@ class UtilityBilling extends Page
     public function startBilling(): void
     {
         if (! $this->propertyId) {
-            Notification::make()
-                ->warning()
-                ->title(__('Select a property from the sidebar to start billing.'))
-                ->send();
-
             return;
         }
-
-        if (! $this->billingEnabled()) {
-            Notification::make()
-                ->warning()
-                ->title(__('Monthly billing is disabled for this property.'))
-                ->send();
-
-            return;
-        }
-
-        if ($this->activeUtilities()->isEmpty()) {
-            Notification::make()
-                ->warning()
-                ->title(__('This property has no active utilities to bill.'))
-                ->send();
-
-            return;
-        }
-
-        if ($this->manualMode) {
-            if (count($this->selectedRentalIds) === 0) {
-                Notification::make()
-                    ->warning()
-                    ->title(__('Please select at least one room for manual billing.'))
-                    ->send();
-
-                return;
-            }
-        } else {
-            if ($this->dueRoomCount() === 0) {
-                Notification::make()
-                    ->warning()
-                    ->title(__('No rooms are due for billing on this date.'))
-                    ->send();
-
-                return;
-            }
-        }
-
         $this->loadRooms();
-
-        if ($this->rooms === []) {
-            Notification::make()
-                ->warning()
-                ->title($this->manualMode ? __('None of the selected rooms have active rentals.') : __('No rooms are due for billing on this date.'))
-                ->send();
-
-            return;
-        }
-
-        $this->currentRoomIndex = 0;
-        $this->reviewFocusIndex = null;
         $this->step = 'reading';
     }
 
@@ -366,13 +306,6 @@ class UtilityBilling extends Page
         return $this->propertyId === null;
     }
 
-    public function updateIssueDate(): void
-    {
-        if ($this->step === 'reading' || $this->step === 'review') {
-            return;
-        }
-    }
-
     public function currentRoom(): ?array
     {
         return $this->rooms[$this->currentRoomIndex] ?? null;
@@ -403,9 +336,13 @@ class UtilityBilling extends Page
         if (! $room) {
             return [
                 'utility_summary' => '',
+                'charges_to_bill' => [],
+                'free_or_waived' => [],
+                'not_billed' => [],
                 'rent' => 0.0,
                 'utilities_total' => 0.0,
                 'estimated_total' => 0.0,
+                'estimated_total_display' => '',
                 'warnings' => [],
                 'warning_count' => 0,
                 'has_missing' => false,
@@ -414,8 +351,12 @@ class UtilityBilling extends Page
             ];
         }
 
-        $utilitiesTotal = 0.0;
+        $usdOnly = 0.0;
+        $khrOnly = 0.0;
         $summaryParts = [];
+        $chargesToBill = [];
+        $freeOrWaived = [];
+        $notBilled = [];
         $warnings = [];
         $hasMissing = false;
 
@@ -430,14 +371,24 @@ class UtilityBilling extends Page
 
         foreach ($room['utilities'] as $utilityIndex => $utility) {
             $preview = $this->utilityPreview($index, $utilityIndex);
-            $utilitiesTotal += $preview['charge'];
-            $summaryParts[] = $utility['utility_name'].': '.(
-                ! ($preview['requires_reading'] ?? true)
-                    ? __('Fixed charge')
-                    : ($preview['amount_used'] === null
-                        ? '—'
-                        : $this->formatQuantity($preview['amount_used']))
-            );
+            $utilityCurrency = $utility['currency'] ?? 'USD';
+            $state = (string) ($utility['state_override'] ?? 'normal');
+            $stateLabel = ChargeRuleResolver::stateLabel($state);
+            $scopeLabel = ChargeRuleResolver::scopeLabel((string) ($utility['source_scope_type'] ?? 'property'));
+            if ($utilityCurrency === 'USD') {
+                $usdOnly += $preview['charge'];
+            } else {
+                $khrOnly += $preview['charge'];
+            }
+
+            $summaryParts[] = $utility['utility_name'].': '.$stateLabel.' · '.$scopeLabel;
+            if (in_array($state, ['not_applicable', 'skipped_this_cycle'], true)) {
+                $notBilled[] = $utility['utility_name'].' · '.$stateLabel;
+            } elseif (in_array($state, ['free', 'waived'], true)) {
+                $freeOrWaived[] = $utility['utility_name'].' · '.$stateLabel;
+            } else {
+                $chargesToBill[] = $utility['utility_name'].' · '.$stateLabel;
+            }
 
             if ($preview['warning']) {
                 $warnings[] = $preview['warning'];
@@ -448,19 +399,37 @@ class UtilityBilling extends Page
             }
         }
 
+        $propertySetting = PropertySetting::where('property_id', $this->propertyId)->first();
+        $rate = $propertySetting?->usd_khr_exchange_rate ?: 4000;
+
         return [
             'utility_summary' => $summaryParts !== []
                 ? implode(' · ', $summaryParts)
                 : __('No active utilities'),
+            'charges_to_bill' => $chargesToBill,
+            'free_or_waived' => $freeOrWaived,
+            'not_billed' => $notBilled,
             'rent' => 0.0,
-            'utilities_total' => $utilitiesTotal,
-            'estimated_total' => round($utilitiesTotal, 2),
+            'utilities_total' => $usdOnly + ($khrOnly / $rate),
+            'estimated_total' => round($usdOnly + ($khrOnly / $rate), 2),
+            'estimated_total_display' => $this->formatMixedTotal($usdOnly, $khrOnly, $rate),
             'warnings' => array_values(array_unique($warnings)),
             'warning_count' => count(array_unique($warnings)),
             'has_missing' => $hasMissing,
             'is_skipped' => (bool) ($room['skipped'] ?? false),
             'is_complete' => ! $hasMissing && ! $this->roomHasBlockingLowReadings($index) && ! $this->roomHasInvalidPeriodOrDuplicate($index) && ! (bool) ($room['skipped'] ?? false),
         ];
+    }
+
+    public function formatMixedTotal(float $usd, float $khr, float $rate): string
+    {
+        if ($usd > 0 && $khr > 0) {
+            return Money::format($usd, 'USD') . ' + ' . Money::format($khr, 'KHR');
+        }
+        if ($khr > 0) {
+            return Money::format($khr, 'KHR');
+        }
+        return Money::format($usd, 'USD');
     }
 
     public function utilityPreview(int $roomIndex, int $utilityIndex): array
@@ -477,6 +446,21 @@ class UtilityBilling extends Page
                 'warning' => null,
                 'missing' => true,
                 'requires_reading' => true,
+            ];
+        }
+
+        $state = (string) ($utility['state_override'] ?? 'normal');
+        if (in_array($state, ['not_applicable', 'skipped_this_cycle'], true)) {
+            return [
+                'old_reading' => null,
+                'new_reading' => null,
+                'amount_used' => null,
+                'charge' => $this->previewCharge($utility, 0.0),
+                'warning' => null,
+                'is_lower_reading' => false,
+                'is_high_usage' => false,
+                'missing' => false,
+                'requires_reading' => false,
             ];
         }
 
@@ -541,6 +525,9 @@ class UtilityBilling extends Page
         $warnings = [];
 
         foreach (array_keys($room['utilities']) as $utilityIndex) {
+            if (in_array((string) ($room['utilities'][$utilityIndex]['state_override'] ?? 'normal'), ['not_applicable', 'skipped_this_cycle'], true)) {
+                continue;
+            }
             $preview = $this->utilityPreview($index, (int) $utilityIndex);
             if (($preview['requires_reading'] ?? true) && $preview['warning']) {
                 $warnings[] = $preview['warning'];
@@ -561,6 +548,9 @@ class UtilityBilling extends Page
         }
 
         foreach ($room['utilities'] as $utilityIndex => $utility) {
+            if (in_array((string) ($utility['state_override'] ?? 'normal'), ['not_applicable', 'skipped_this_cycle'], true)) {
+                continue;
+            }
             $preview = $this->utilityPreview($index, $utilityIndex);
             if (($preview['requires_reading'] ?? true) && $preview['is_lower_reading'] && blank($utility['override_reason'] ?? null)) {
                 return true;
@@ -578,6 +568,9 @@ class UtilityBilling extends Page
         }
 
         foreach ($room['utilities'] as $utilityIndex => $utility) {
+            if (in_array((string) ($utility['state_override'] ?? 'normal'), ['not_applicable', 'skipped_this_cycle'], true)) {
+                continue;
+            }
             if (($utility['requires_reading'] ?? true) && blank($utility['new_reading'] ?? null)) {
                 return true;
             }
@@ -593,7 +586,8 @@ class UtilityBilling extends Page
         return $room
             && ! ($room['skipped'] ?? false)
             && ! $this->roomHasMissingReadings($index)
-            && ! $this->roomHasBlockingLowReadings($index);
+            && ! $this->roomHasBlockingLowReadings($index)
+            && ! $this->roomHasInvalidPeriodOrDuplicate($index);
     }
 
     public function completeRoomCount(): int
@@ -606,6 +600,52 @@ class UtilityBilling extends Page
     public function skippedRoomCount(): int
     {
         return collect($this->rooms)->filter(fn (array $room) => (bool) ($room['skipped'] ?? false))->count();
+    }
+
+    protected function billingStateCounts(): array
+    {
+        $counts = [
+            'billed' => 0,
+            'free' => 0,
+            'waived' => 0,
+            'not_applicable' => 0,
+            'skipped_this_cycle' => 0,
+            'custom' => 0,
+        ];
+
+        foreach ($this->rooms as $room) {
+            if (($room['skipped'] ?? false) === true) {
+                continue;
+            }
+
+            $rentState = $room['rent_state_override'] ?? 'normal';
+            if ($rentState === 'free' || $rentState === 'waived') {
+                $counts[$rentState]++;
+            } elseif ($rentState === 'not_applicable' || $rentState === 'skipped_this_cycle') {
+                $counts[$rentState]++;
+            } else {
+                $counts['billed']++;
+                if ($rentState === 'custom') {
+                    $counts['custom']++;
+                }
+            }
+
+            foreach ($room['utilities'] ?? [] as $utility) {
+                $state = $utility['state_override'] ?? 'normal';
+                if ($state === 'free' || $state === 'waived') {
+                    $counts[$state]++;
+                } elseif ($state === 'not_applicable' || $state === 'skipped_this_cycle') {
+                    $counts[$state]++;
+                } else {
+                    $counts['billed']++;
+                    if ($state === 'custom') {
+                        $counts['custom']++;
+                    }
+                }
+            }
+        }
+
+        return $counts;
     }
 
     public function roomsWithWarningsCount(): int
@@ -622,77 +662,16 @@ class UtilityBilling extends Page
             ->count();
     }
 
-    public function nextRoom(): void
+    public function estimatedUtilityTotal(): float
     {
-        if ($this->rooms === []) {
-            return;
-        }
-
-        if ($this->currentRoomIndex >= count($this->rooms) - 1) {
-            $this->goToReview();
-            return;
-        }
-
-        $this->currentRoomIndex++;
-    }
-
-    public function advanceFromReading(int $roomIndex, int $utilityIndex): void
-    {
-        if (! isset($this->rooms[$roomIndex]['utilities'][$utilityIndex])) {
-            $this->nextRoom();
-
-            return;
-        }
-
-        $nextIndex = null;
-        $utilities = $this->rooms[$roomIndex]['utilities'];
-
-        for ($i = $utilityIndex + 1; $i < count($utilities); $i++) {
-            if (! ($utilities[$i]['requires_reading'] ?? true) || blank($utilities[$i]['new_reading'] ?? null)) {
-                $nextIndex = $i;
-                break;
+        $total = 0.0;
+        foreach (array_keys($this->rooms) as $index) {
+            if ($this->roomIsReady($index)) {
+                $summary = $this->roomSummary($index);
+                $total += $summary['utilities_total'];
             }
         }
-
-        if ($nextIndex === null && $utilityIndex + 1 < count($utilities)) {
-            $nextIndex = $utilityIndex + 1;
-        }
-
-        if ($nextIndex !== null) {
-            $this->dispatch('focus-reading', ref: 'reading-'.$roomIndex.'-'.$nextIndex);
-
-            return;
-        }
-
-        $this->nextRoom();
-    }
-
-    public function previousRoom(): void
-    {
-        if ($this->reviewFocusIndex !== null) {
-            $this->returnToReview();
-
-            return;
-        }
-
-        if ($this->currentRoomIndex <= 0) {
-            $this->step = 'start';
-
-            return;
-        }
-
-        $this->currentRoomIndex--;
-    }
-
-    public function skipCurrentRoom(): void
-    {
-        if (! isset($this->rooms[$this->currentRoomIndex])) {
-            return;
-        }
-
-        $this->rooms[$this->currentRoomIndex]['skipped'] = true;
-        $this->rooms[$this->currentRoomIndex]['skip_reason'] = __('Skipped by user');
-        $this->nextRoom();
+        return $total;
     }
 
     public function toggleRoomSkip(int $index): void
@@ -705,45 +684,6 @@ class UtilityBilling extends Page
         if (! $this->rooms[$index]['skipped']) {
             unset($this->rooms[$index]['skip_reason']);
         }
-    }
-
-    public function editRoom(int $index): void
-    {
-        if (! isset($this->rooms[$index])) {
-            return;
-        }
-
-        $this->currentRoomIndex = $index;
-        $this->reviewFocusIndex = $index;
-        $this->step = 'reading';
-    }
-
-    public function returnToReview(): void
-    {
-        $this->step = 'review';
-    }
-
-    public function goToReview(): void
-    {
-        if ($this->rooms === []) {
-            return;
-        }
-
-        $blockingIndex = $this->firstBlockingRoomIndex();
-        if ($blockingIndex !== null) {
-            $this->currentRoomIndex = $blockingIndex;
-            $this->step = 'reading';
-            $this->reviewFocusIndex = $blockingIndex;
-
-            Notification::make()
-                ->warning()
-                ->title(__('Please finish or override the highlighted room before review.'))
-                ->send();
-
-            return;
-        }
-
-        $this->step = 'review';
     }
 
     public function openCreateConfirmation(): void
@@ -794,9 +734,9 @@ class UtilityBilling extends Page
         }
 
         if (($blockingIndex = $this->firstBlockingRoomIndex()) !== null) {
-            $this->currentRoomIndex = $blockingIndex;
             $this->step = 'reading';
             $this->showCreateConfirmation = false;
+            $this->creatingInvoices = false;
 
             Notification::make()
                 ->warning()
@@ -840,10 +780,24 @@ class UtilityBilling extends Page
                     }
 
                     $usages = [];
+                    $utilityOverrides = [];
 
                     foreach ($room['utilities'] as $utility) {
+                        $state = (string) ($utility['state_override'] ?? 'normal');
+                        if ($state !== 'normal') {
+                            $utilityOverrides[$utility['property_utility_id']] = [
+                                'state' => $state,
+                                'reason' => $utility['override_reason'] ?? null,
+                                'amount' => $utility['override_amount'] ?? null,
+                                'currency' => $utility['override_currency'] ?? null,
+                            ];
+                        }
+
                         $requiresReading = (bool) ($utility['requires_reading'] ?? true);
                         $newReading = $this->parseNumber($utility['new_reading']);
+                        if (in_array($state, ['not_applicable', 'skipped_this_cycle'], true)) {
+                            continue;
+                        }
                         if ($requiresReading && $newReading === null) {
                             continue;
                         }
@@ -880,6 +834,7 @@ class UtilityBilling extends Page
                         'issue_date' => $issueDate,
                         'include_rent' => false,
                         'usages' => $usages,
+                        'utility_overrides' => $utilityOverrides,
                     ];
 
                     if ($dueDate = $this->determineDueDate($rental, $periodStart)) {
@@ -937,9 +892,27 @@ class UtilityBilling extends Page
 
         Notification::make()
             ->title(__('Billing complete'))
-            ->body(__(':created invoice(s) created', ['created' => $created]))
+            ->body($this->billingCompleteBody($created))
             ->success()
             ->send();
+    }
+
+    protected function billingCompleteBody(int $created): string
+    {
+        $counts = $this->billingStateCounts();
+        $parts = [
+            __('Created :count invoice(s).', ['count' => $created]),
+            __('Billed :count charge(s).', ['count' => $counts['billed']]),
+            __('Free/Waived :count charge(s).', ['count' => $counts['free'] + $counts['waived']]),
+            __('Not applicable :count charge(s).', ['count' => $counts['not_applicable']]),
+            __('Skipped this cycle :count charge(s).', ['count' => $counts['skipped_this_cycle']]),
+        ];
+
+        if ($counts['custom'] > 0) {
+            $parts[] = __('Custom adjustments :count.', ['count' => $counts['custom']]);
+        }
+
+        return implode(' ', $parts);
     }
 
     public function startAnotherProperty(): void
@@ -971,7 +944,7 @@ class UtilityBilling extends Page
     {
         $this->propertyId = $propertyId;
         $this->issueDate = $this->suggestIssueDate($propertyId);
-        $this->step = 'start';
+        $this->step = 'reading'; // Go straight to workspace!
         $this->rooms = [];
         $this->currentRoomIndex = 0;
         $this->reviewFocusIndex = null;
@@ -983,6 +956,7 @@ class UtilityBilling extends Page
             'invoice_ids' => [],
             'failures' => [],
         ];
+        $this->loadRooms();
     }
 
     protected function resetWizard(): void
@@ -1027,9 +1001,6 @@ class UtilityBilling extends Page
         return $earliest ?? now()->toDateString();
     }
 
-    /**
-     * @return array<int>
-     */
     protected function dueRentalIds(int $propertyId, Carbon $issueDate): array
     {
         return Rental::where('property_id', $propertyId)
@@ -1116,17 +1087,38 @@ class UtilityBilling extends Page
                 ->orderByDesc('id')
                 ->first();
 
+            $resolver = app(\App\Services\ChargeRuleResolver::class);
+            $decision = $resolver->resolve([
+                'property_utility_id' => $utility->id,
+                'rental_id' => $rental->id,
+                'unit_id' => $rental->unit_id,
+                'date' => $periodEnd->toDateString(),
+            ]);
+            $propertyDecision = $resolver->resolve([
+                'property_utility_id' => $utility->id,
+                'property_id' => $this->propertyId,
+                'date' => $periodEnd->toDateString(),
+            ]);
+
             $readings[] = [
                 'property_utility_id' => $utility->id,
                 'utility_name' => $this->utilityLabel($utility->name),
                 'billing_type' => $utility->billing_type->value,
                 'rate' => (float) $utility->rate,
+                'currency' => $utility->currency ?: 'USD',
                 'unit_of_measure' => $utility->unit_of_measure,
                 'requires_reading' => $utility->requiresReading(),
                 'previous_usage' => (float) ($latestUsage?->amount_used ?? 0),
                 'old_reading' => (string) ($latestUsage?->new_reading ?? 0),
                 'new_reading' => null,
                 'override_reason' => null,
+                'state_override' => $decision['effective_state'],
+                'source_scope_type' => $decision['source_scope_type'],
+                'source_scope_label' => ChargeRuleResolver::scopeLabel((string) $decision['source_scope_type']),
+                'property_state_override' => $propertyDecision['effective_state'],
+                'property_scope_label' => ChargeRuleResolver::scopeLabel((string) $propertyDecision['source_scope_type']),
+                'override_amount' => $decision['effective_state'] === 'custom' ? $decision['amount'] : null,
+                'override_currency' => $decision['effective_state'] === 'custom' ? $decision['currency'] : null,
             ];
         }
 
@@ -1237,6 +1229,19 @@ class UtilityBilling extends Page
         } else {
             $this->selectedRentalIds = $allIds;
         }
+        $this->loadRooms();
+    }
+
+    public function selectAllRentals(): void
+    {
+        $this->selectedRentalIds = $this->activeRentals()->pluck('id')->all();
+        $this->loadRooms();
+    }
+
+    public function clearAllRentals(): void
+    {
+        $this->selectedRentalIds = [];
+        $this->loadRooms();
     }
 
     public function hasDuplicateInvoice(int $roomIndex): bool
@@ -1280,6 +1285,97 @@ class UtilityBilling extends Page
 
     public function updatedRooms($value, $key): void
     {
-        // Period edits are accepted as-is; utility-only invoices carry no rent to recompute.
+        // No-op
+    }
+
+    public function updatedIssueDate(): void
+    {
+        $this->loadRooms();
+    }
+
+    public function updatedManualMode(): void
+    {
+        if ($this->manualMode) {
+            $this->selectedRentalIds = $this->activeRentals()->pluck('id')->all();
+        } else {
+            $this->selectedRentalIds = [];
+        }
+        $this->loadRooms();
+    }
+
+    public function updatedSelectedRentalIds(): void
+    {
+        if ($this->manualMode) {
+            $this->loadRooms();
+        }
+    }
+
+    public function filteredRooms(): array
+    {
+        $filtered = [];
+        $searchTerm = trim(strtolower($this->search));
+
+        foreach ($this->rooms as $index => $room) {
+            // 1) Search filter
+            if ($searchTerm !== '') {
+                $roomNumber = strtolower((string) ($room['room_number'] ?? ''));
+                $tenantName = strtolower((string) ($room['occupant_name'] ?? ''));
+                if (! str_contains($roomNumber, $searchTerm) && ! str_contains($tenantName, $searchTerm)) {
+                    continue;
+                }
+            }
+
+            // 2) Row Filter
+            $summary = $this->roomSummary($index);
+            switch ($this->rowFilter) {
+                case 'needs_input':
+                    if (! $this->roomHasMissingReadings($index)) {
+                        continue 2;
+                    }
+                    break;
+                case 'warnings':
+                    if ($summary['warning_count'] === 0) {
+                        continue 2;
+                    }
+                    break;
+                case 'skipped':
+                    if (! $summary['is_skipped']) {
+                        continue 2;
+                    }
+                    break;
+                case 'ready':
+                    if (! $this->roomIsReady($index)) {
+                        continue 2;
+                    }
+                    break;
+            }
+
+            $room['original_index'] = $index;
+            $filtered[] = $room;
+        }
+
+        return $filtered;
+    }
+
+    public function focusFirstIssue(): void
+    {
+        foreach ($this->rooms as $index => $room) {
+            if ($room['skipped'] ?? false) {
+                continue;
+            }
+            foreach ($room['utilities'] as $utilityIndex => $utility) {
+                if ($utility['requires_reading'] ?? true) {
+                    $preview = $this->utilityPreview($index, $utilityIndex);
+                    if ($preview['missing'] || $preview['is_lower_reading']) {
+                        $this->dispatch('focus-reading', ref: 'reading-'.$index.'-'.$utilityIndex);
+                        return;
+                    }
+                }
+            }
+        }
+
+        if (count($this->rooms) > 0) {
+            $this->dispatch('focus-reading', ref: 'reading-0-0');
+        }
     }
 }

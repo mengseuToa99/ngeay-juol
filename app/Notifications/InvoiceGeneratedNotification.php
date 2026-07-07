@@ -27,8 +27,7 @@ class InvoiceGeneratedNotification extends Notification
         return (new MailMessage)
             ->subject(__('New invoice :number', ['number' => $this->invoice->invoice_number]))
             ->line(__('A new invoice has been generated.'))
-            ->line(__('Amount due: :amount', ['amount' => Money::formatForRecord($this->invoice->amount_due, $this->invoice)]))
-            ->line(__('Due date: :date', ['date' => Invoice::displayDate($this->invoice->due_date)]));
+            ->line(__('Amount due: :amount', ['amount' => Money::formatInvoiceAmount($this->invoice, 'due')]));
     }
 
     /** @return array<string, mixed> */
@@ -40,11 +39,10 @@ class InvoiceGeneratedNotification extends Notification
             'invoice_id' => $this->invoice->id,
             'invoice_number' => $this->invoice->invoice_number,
             'amount_due' => (float) $this->invoice->amount_due,
-            'due_date' => $this->invoice->due_date?->toDateString(),
             'title' => __('New invoice generated'),
-            'body' => __('Invoice :number is due on :date.', [
+            'body' => __('Invoice :number total is :amount.', [
                 'number' => $this->invoice->invoice_number,
-                'date' => Invoice::displayDate($this->invoice->due_date),
+                'amount' => Money::formatInvoiceAmount($this->invoice, 'due'),
             ]),
         ];
     }

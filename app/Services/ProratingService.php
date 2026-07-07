@@ -32,8 +32,10 @@ class ProratingService
         float $monthlyRent,
         Carbon $periodStart,
         Carbon $periodEnd,
+        string $currency = 'USD',
     ): float {
         $mode = $setting?->first_month_billing_mode ?? FirstMonthBillingMode::FullMonth;
+        $decimals = \App\Support\Money::decimals($currency);
 
         $daysInMonth = $periodEnd->daysInMonth ?: 30;
 
@@ -43,21 +45,22 @@ class ProratingService
         // If the period spans a full month (or more) we always charge the full amount
         // regardless of the mode — proration only applies to partial first months.
         if ($daysOccupied >= $daysInMonth) {
-            return round($monthlyRent, 2);
+            return round($monthlyRent, $decimals);
         }
 
         return match ($mode) {
-            FirstMonthBillingMode::FullMonth => round($monthlyRent, 2),
+            FirstMonthBillingMode::FullMonth => round($monthlyRent, $decimals),
 
             FirstMonthBillingMode::Prorated => round(
                 ($monthlyRent / $daysInMonth) * $daysOccupied,
-                2,
+                $decimals,
             ),
 
             FirstMonthBillingMode::HalfMonth => self::computeHalfMonth(
                 $setting,
                 $monthlyRent,
                 $periodStart,
+                $currency,
             ),
         };
     }
@@ -73,13 +76,15 @@ class ProratingService
         ?PropertySetting $setting,
         float $monthlyRent,
         Carbon $periodStart,
+        string $currency = 'USD',
     ): float {
         $cutoffDay = $setting?->proration_cutoff_day ?? 15;
         $moveInDay = $periodStart->day;
+        $decimals = \App\Support\Money::decimals($currency);
 
         return $moveInDay > $cutoffDay
-            ? round($monthlyRent / 2, 2)
-            : round($monthlyRent, 2);
+            ? round($monthlyRent / 2, $decimals)
+            : round($monthlyRent, $decimals);
     }
 
     /**
@@ -87,12 +92,14 @@ class ProratingService
      *
      * @param  PropertySetting|null  $setting
      * @param  float                 $monthlyRent
+     * @param  string                $currency
      * @return float                 Deposit amount (may be 0).
      */
-    public static function depositAmount(?PropertySetting $setting, float $monthlyRent): float
+    public static function depositAmount(?PropertySetting $setting, float $monthlyRent, string $currency = 'USD'): float
     {
         $months = $setting?->upfront_deposit_months ?? 0;
+        $decimals = \App\Support\Money::decimals($currency);
 
-        return round($monthlyRent * max(0, (int) $months), 2);
+        return round($monthlyRent * max(0, (int) $months), $decimals);
     }
 }

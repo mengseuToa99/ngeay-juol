@@ -8,10 +8,12 @@ use App\Filament\Concerns\ScopesToActiveProperty;
 use App\Filament\Resources\PropertyUtilityResource\Pages;
 use App\Filament\Resources\PropertyUtilityResource\RelationManagers;
 use App\Models\PropertyUtility;
+use App\Models\ChargeRule;
 use App\Models\Rental;
 use App\Models\Unit;
 use App\Models\UtilityUsage;
 use App\Models\UtilityWaiver;
+use App\Services\ChargeRuleResolver;
 use App\Support\ActiveProperty;
 use App\Support\Money;
 use Filament\Forms;
@@ -76,8 +78,22 @@ class PropertyUtilityResource extends Resource
                 ->required()
                 ->default('kWh'),
             Forms\Components\Select::make('billing_type')->options(BillingType::class)->default(BillingType::Metered)->required(),
-            Forms\Components\TextInput::make('rate')->numeric()->prefix(fn () => Money::activeSymbol())->step(0.0001)->required()
-                ->helperText(__('Per unit (metered) or fixed amount (flat).')),
+            Forms\Components\Grid::make(2)
+                ->schema([
+                    Forms\Components\TextInput::make('rate')
+                        ->numeric()
+                        ->step(0.0001)
+                        ->required()
+                        ->helperText(__('Per unit (metered) or fixed amount (flat).')),
+                    Forms\Components\Select::make('currency')
+                        ->label(__('Currency'))
+                        ->options([
+                            'USD' => 'USD ($)',
+                            'KHR' => 'KHR (៛)',
+                        ])
+                        ->default(fn () => ActiveProperty::id() ? Money::forPropertyId(ActiveProperty::id()) : 'USD')
+                        ->required(),
+                ]),
             Forms\Components\TextInput::make('provider')->placeholder('e.g. EDC, PPWSA'),
             Forms\Components\TextInput::make('account_ref')->label(__('Account #')),
             Forms\Components\Toggle::make('is_active')->default(true),
@@ -107,6 +123,7 @@ class PropertyUtilityResource extends Resource
                 Tables\Actions\ActionGroup::make([
                     Tables\Actions\ViewAction::make(),
                     static::initializeReadingsAction(),
+                    static::manageApplicabilityAction(),
                     static::addWaiverAction(),
                     Tables\Actions\EditAction::make(),
                     Tables\Actions\DeleteAction::make(),
@@ -243,6 +260,170 @@ class PropertyUtilityResource extends Resource
             });
     }
 
+    protected static function manageApplicabilityAction(): Tables\Actions\Action
+    {
+        return Tables\Actions\Action::make('manageApplicability')
+            ->label(__('Manage applicability'))
+            ->icon('heroicon-o-adjustments-horizontal')
+            ->color('primary')
+            ->modalWidth('xl')
+            ->modalHeading(fn ($record) => __('Manage applicability — :utility', ['utility' => $record->name]))
+            ->modalSubmitActionLabel(__('Apply rules'))
+            ->form(function ($record): array {
+                $propertyId = $record->property_id;
+
+                return [
+                    Forms\Components\Select::make('target_scope')
+                        ->label(__('Apply to'))
+                        ->options([
+                            'property' => __('All rooms in the property'),
+                            'unit' => __('Selected rooms'),
+                            'rental' => __('Selected rentals'),
+                        ])
+                        ->default('property')
+                        ->required()
+                        ->live(),
+
+                    Forms\Components\Toggle::make('apply_all')
+                        ->label(__('Apply to all rooms'))
+                        ->default(true)
+                        ->visible(fn (Forms\Get $get) => $get('target_scope') !== 'property')
+                        ->helperText(__('Turn this on to apply the rule to every room in the active property.'))
+                        ->live(),
+
+                    Forms\Components\Toggle::make('occupied_only')
+                        ->label(__('Active / occupied rooms only'))
+                        ->default(false)
+                        ->visible(fn (Forms\Get $get) => in_array($get('target_scope'), ['unit', 'rental'], true))
+                        ->helperText(__('Only include rooms that currently have an active tenancy.')),
+
+                    Forms\Components\CheckboxList::make('unit_ids')
+                        ->label(__('Select rooms'))
+                        ->options(fn () => Unit::where('property_id', $propertyId)->orderBy('room_number')->pluck('room_number', 'id'))
+                        ->columns(2)
+                        ->searchable()
+                        ->bulkToggleable()
+                        ->visible(fn (Forms\Get $get) => $get('target_scope') === 'unit' && ! $get('apply_all'))
+                        ->helperText(__('Choose the rooms to update.')),
+
+                    Forms\Components\CheckboxList::make('rental_ids')
+                        ->label(__('Select rentals'))
+                        ->options(fn () => Rental::whereHas('unit', fn ($q) => $q->where('property_id', $propertyId))
+                            ->with('unit')->orderBy('id')->get()
+                            ->mapWithKeys(fn ($r) => [$r->id => '#'.$r->id.' · '.($r->unit?->room_number ?? '').' · '.($r->occupant_name ?? '')]))
+                        ->columns(2)
+                        ->searchable()
+                        ->bulkToggleable()
+                        ->visible(fn (Forms\Get $get) => $get('target_scope') === 'rental' && ! $get('apply_all'))
+                        ->helperText(__('Choose the rentals to update.')),
+
+                    Forms\Components\Select::make('state')
+                        ->label(__('Applicability / State'))
+                        ->options([
+                            'normal' => ChargeRuleResolver::stateLabel('normal'),
+                            'free' => ChargeRuleResolver::stateLabel('free'),
+                            'waived' => ChargeRuleResolver::stateLabel('waived'),
+                            'not_applicable' => ChargeRuleResolver::stateLabel('not_applicable'),
+                            'skipped_this_cycle' => ChargeRuleResolver::stateLabel('skipped_this_cycle'),
+                            'custom' => ChargeRuleResolver::stateLabel('custom'),
+                        ])
+                        ->default('normal')
+                        ->required()
+                        ->live()
+                        ->helperText(fn (Forms\Get $get) => ChargeRuleResolver::stateHelpText((string) $get('state'))),
+
+                    Forms\Components\TextInput::make('amount_override')
+                        ->label(__('Custom amount'))
+                        ->numeric()
+                        ->visible(fn (Forms\Get $get) => $get('state') === 'custom')
+                        ->required(fn (Forms\Get $get) => $get('state') === 'custom'),
+
+                    Forms\Components\Select::make('currency_override')
+                        ->label(__('Custom currency'))
+                        ->options([
+                            'USD' => 'USD ($)',
+                            'KHR' => 'KHR (៛)',
+                        ])
+                        ->visible(fn (Forms\Get $get) => $get('state') === 'custom')
+                        ->required(fn (Forms\Get $get) => $get('state') === 'custom'),
+
+                    Forms\Components\DatePicker::make('effective_from')
+                        ->label(__('Effective from')),
+
+                    Forms\Components\DatePicker::make('effective_until')
+                        ->label(__('Effective until')),
+
+                    Forms\Components\TextInput::make('reason')
+                        ->label(__('Reason'))
+                        ->placeholder(__('e.g. No motorbike, maintenance issue'))
+                        ->columnSpanFull(),
+                ];
+            })
+            ->action(function ($record, array $data): void {
+                $targets = [];
+                $propertyId = $record->property_id;
+                $scope = $data['target_scope'] ?? 'property';
+                $applyAll = (bool) ($data['apply_all'] ?? false);
+                $occupiedOnly = (bool) ($data['occupied_only'] ?? false);
+
+                if ($scope === 'property') {
+                    $targets[] = ['scope_type' => 'property', 'scope_id' => $propertyId];
+                } elseif ($scope === 'unit') {
+                    $query = Unit::where('property_id', $propertyId);
+                    if ($occupiedOnly) {
+                        $query->whereHas('activeRental');
+                    }
+                    $ids = $applyAll ? $query->pluck('id')->all() : ($data['unit_ids'] ?? []);
+                    foreach ($ids as $unitId) {
+                        $targets[] = ['scope_type' => 'unit', 'scope_id' => (int) $unitId];
+                    }
+                } elseif ($scope === 'rental') {
+                    $query = Rental::whereHas('unit', fn ($q) => $q->where('property_id', $propertyId));
+                    if ($occupiedOnly) {
+                        $query->where('status', \App\Enums\RentalStatus::Active->value);
+                    }
+                    $ids = $applyAll ? $query->pluck('id')->all() : ($data['rental_ids'] ?? []);
+                    foreach ($ids as $rentalId) {
+                        $targets[] = ['scope_type' => 'rental', 'scope_id' => (int) $rentalId];
+                    }
+                }
+
+                if ($targets === []) {
+                    Notification::make()
+                        ->warning()
+                        ->title(__('Select at least one room or rental.'))
+                        ->send();
+
+                    return;
+                }
+
+                $created = 0;
+                foreach ($targets as $target) {
+                    ChargeRule::create([
+                        'charge_definition_id' => $record->charge_definition_id,
+                        'property_utility_id' => $record->getKey(),
+                        'landlord_id' => $record->landlord_id,
+                        'property_id' => $propertyId,
+                        'scope_type' => $target['scope_type'],
+                        'scope_id' => $target['scope_id'],
+                        'state' => $data['state'] ?? 'normal',
+                        'amount_override' => $data['amount_override'] ?? null,
+                        'currency_override' => $data['currency_override'] ?? null,
+                        'effective_from' => $data['effective_from'] ?? null,
+                        'effective_until' => $data['effective_until'] ?? null,
+                        'reason' => $data['reason'] ?? null,
+                        'created_by_id' => auth()->id(),
+                    ]);
+                    $created++;
+                }
+
+                Notification::make()
+                    ->success()
+                    ->title(__(':count rule(s) applied', ['count' => $created]))
+                    ->send();
+            });
+    }
+
     protected static function initializeReadingsAction(): Tables\Actions\Action
     {
         return Tables\Actions\Action::make('initializeReadings')
@@ -367,6 +548,7 @@ class PropertyUtilityResource extends Resource
     {
         return [
             RelationManagers\WaiversRelationManager::class,
+            RelationManagers\ChargeRulesRelationManager::class,
         ];
     }
 

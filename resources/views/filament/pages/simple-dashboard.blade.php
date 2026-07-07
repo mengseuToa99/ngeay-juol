@@ -145,7 +145,7 @@
                     <h2 class="rw-sm-screen-title">{{ __('Create invoices') }}</h2>
                 </div>
                 <div class="overflow-hidden rounded-2xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900">
-                    @livewire(\App\Filament\Pages\MonthlyBilling::class, ['embedded' => true], key('simple-monthly-billing'))
+                    @livewire(\App\Livewire\SimpleBillingInvoice::class, key('simple-billing-invoice'))
                 </div>
             </div>
 

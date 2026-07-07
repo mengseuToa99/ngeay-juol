@@ -18,7 +18,8 @@
     $money = fn ($v) => Money::formatForRecord($v, $invoice);
     $qty = fn ($v) => rtrim(rtrim(number_format((float) $v, 3), '0'), '.');
 
-    $subtotal = $invoice->lines->sum(fn ($l) => (float) $l->amount);
+    $visibleLines = $invoice->lines->filter(fn ($line) => $line->shouldAppearOnTenantInvoice());
+    $subtotal = $visibleLines->sum(fn ($l) => (float) $l->amount);
     $tenantName = $invoice->tenant?->name ?? $invoice->rental?->occupant_name ?? '—';
     $roomNumber = $invoice->rental?->unit?->room_number;
     $property = $invoice->property ?? $invoice->rental?->unit?->property;
@@ -252,20 +253,27 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse ($invoice->lines as $line)
+                @forelse ($visibleLines as $line)
                     @php $usage = $line->utilityUsage; @endphp
-                    <tr class="{{ $line->is_waived ? 'waived' : '' }}">
+                    <tr class="{{ $line->resolvedChargeState() === 'waived' ? 'waived' : '' }}">
                         <td>
                             <div class="desc">{{ $line->getTranslatedDescription() }}</div>
-                            @if ($line->line_type || $line->is_waived)
+                            @if ($line->line_type || $line->resolvedChargeState() !== 'normal')
                                 <div class="rw-tags">
                                     @if ($line->line_type)
                                         <span class="rw-tag">{{ $line->line_type->getLabel() }}</span>
                                     @endif
-                                    @if ($line->is_waived)
+                                    @if ($line->resolvedChargeState() === 'free')
+                                        <span class="rw-tag--waived">{{ __('Free') }}</span>
+                                    @elseif ($line->resolvedChargeState() === 'waived')
                                         <span class="rw-tag--waived">{{ __('Waived') }}</span>
+                                    @elseif ($line->resolvedChargeState() === 'custom')
+                                        <span class="rw-tag--waived">{{ __('Adjusted') }}</span>
                                     @endif
                                 </div>
+                            @endif
+                            @if ($line->resolvedChargeState() === 'waived' && $line->resolvedChargeStateReason())
+                                <div class="rw-usage">{{ $line->resolvedChargeStateReason() }}</div>
                             @endif
                             @if ($usage && $usage->propertyUtility)
                                 @php $pu = $usage->propertyUtility; @endphp
@@ -275,15 +283,23 @@
                                         <br>
                                         {{ __('Meter') }}: {{ number_format((float) $usage->old_reading, 1) }} → {{ number_format((float) $usage->new_reading, 1) }}
                                         @if ($usage->amount_used)
-                                            · {{ __('Consumed') }}: {{ $qty($usage->amount_used) }} {{ $pu->unit_of_measure ?? __('units') }}@if ($pu->rate) × {{ $money($pu->rate) }}@endif
+                                            · {{ __('Consumed') }}: {{ $qty($usage->amount_used) }} {{ $pu->unit_of_measure ?? __('units') }}@if ($line->unit_price) × {{ Money::format($line->unit_price, $line->currency) }}@endif
                                         @endif
                                     @endif
                                 </div>
                             @endif
                         </td>
                         <td class="num">{{ $qty($line->quantity) }}</td>
-                        <td class="num">{{ $money($line->unit_price) }}</td>
-                        <td class="num amount">{{ $line->is_waived ? $money(0) : $money($line->amount) }}</td>
+                        <td class="num">{{ Money::format($line->unit_price, $line->currency) }}</td>
+                        <td class="num amount">
+                            @if ($line->resolvedChargeState() === 'free')
+                                {{ __('Free') }}
+                            @elseif ($line->resolvedChargeState() === 'waived')
+                                {{ __('Waived') }}
+                            @else
+                                {{ Money::format($line->amount, $line->currency) }}
+                            @endif
+                        </td>
                     </tr>
                 @empty
                     <tr><td colspan="4" class="rw-empty">{{ __('No line items.') }}</td></tr>
@@ -293,22 +309,72 @@
 
         {{-- Totals --}}
         <div class="rw-totals">
-            <div class="rw-total-row">
-                <span class="k">{{ __('Subtotal') }}</span>
-                <span class="v">{{ $money($subtotal) }}</span>
-            </div>
-            <div class="rw-total-row grand">
-                <span class="k">{{ __('Total Due') }}</span>
-                <span class="v">{{ $money($invoice->amount_due) }}</span>
-            </div>
-            <div class="rw-total-row">
-                <span class="k">{{ __('Paid') }}</span>
-                <span class="v">{{ $money($invoice->amount_paid) }}</span>
-            </div>
-            <div class="rw-balance {{ $owing ? 'owing' : '' }}">
-                <span class="k">{{ __('Balance') }}</span>
-                <span class="v">{{ $money($invoice->balance) }}</span>
-            </div>
+            @if ($invoice->usd_khr_rate > 0)
+                <div class="rw-total-row">
+                    <span class="k">{{ __('USD charges') }}</span>
+                    <span class="v">{{ Money::format($invoice->native_usd_total, 'USD') }}</span>
+                </div>
+                <div class="rw-total-row">
+                    <span class="k">{{ __('KHR charges') }}</span>
+                    <span class="v">{{ Money::format($invoice->native_khr_total, 'KHR') }}</span>
+                </div>
+
+                @php
+                    $reportingCurrency = Money::normalize($invoice->property?->settings?->currency ?? 'USD');
+                    $primaryTotal = $reportingCurrency === 'KHR' ? $invoice->total_khr : $invoice->total_usd;
+                    $primaryCurrency = $reportingCurrency;
+                    $equivTotal = $reportingCurrency === 'KHR' ? $invoice->total_usd : $invoice->total_khr;
+                    $equivCurrency = $reportingCurrency === 'KHR' ? 'USD' : 'KHR';
+                @endphp
+
+                <div class="rw-total-row grand">
+                    <span class="k">{{ __('Total') }}</span>
+                    <span class="v">{{ Money::format($primaryTotal, $primaryCurrency) }}</span>
+                </div>
+                <div class="rw-total-row">
+                    <span class="k">{{ __('Equivalent') }}</span>
+                    <span class="v">{{ Money::format($equivTotal, $equivCurrency) }}</span>
+                </div>
+                <div class="rw-total-row">
+                    <span class="k">{{ __('Exchange rate') }}</span>
+                    <span class="v">1 USD = {{ number_format($invoice->usd_khr_rate, 0) }} KHR</span>
+                </div>
+                @if ($invoice->exchange_rate_source)
+                    <div class="rw-total-row" style="font-size: 0.72rem; color: var(--rw-muted);">
+                        <span class="k">{{ __('Rate source') }}</span>
+                        <span class="v">{{ __($invoice->exchange_rate_source) }}@if ($invoice->exchange_rate_date) ({{ $invoice->exchange_rate_date->format('d M Y') }})@endif</span>
+                    </div>
+                @endif
+
+                <div class="rw-total-row" style="border-top: 1px solid var(--rw-line-soft); margin-top: 0.3rem; padding-top: 0.3rem;">
+                    <span class="k">{{ __('Paid') }}</span>
+                    <span class="v">{{ Money::formatInvoiceAmount($invoice, 'paid') }}</span>
+                </div>
+                <div class="rw-balance {{ $owing ? 'owing' : '' }}">
+                    <span class="k">{{ __('Balance') }}</span>
+                    <span class="v" style="font-size: 0.85rem;">{{ Money::formatInvoiceAmount($invoice, 'balance') }}</span>
+                </div>
+            @else
+                <div class="rw-total-row">
+                    <span class="k">{{ __('Subtotal') }}</span>
+                    <span class="v">{{ $money($subtotal) }}</span>
+                </div>
+                <div class="rw-total-row grand">
+                    <span class="k">{{ __('Total Due') }}</span>
+                    <span class="v">{{ $money($invoice->amount_due) }}</span>
+                </div>
+                <div class="rw-total-row">
+                    <span class="k">{{ __('Paid') }}</span>
+                    <span class="v">{{ $money($invoice->amount_paid) }}</span>
+                </div>
+                <div class="rw-balance {{ $owing ? 'owing' : '' }}">
+                    <span class="k">{{ __('Balance') }}</span>
+                    <span class="v">{{ $money($invoice->balance) }}</span>
+                </div>
+                <div style="font-size: 0.72rem; color: var(--rw-muted); text-align: right; margin-top: 0.3rem;">
+                    {{ __('Exchange-rate snapshot unavailable') }}
+                </div>
+            @endif
         </div>
 
         {{-- Notes --}}

@@ -43,7 +43,28 @@ class InvoiceLinesRelationManager extends RelationManager
                     ->formatStateUsing(fn ($state, $record) => Money::formatForRecord($state, $record)),
                 Tables\Columns\TextColumn::make('amount')
                     ->formatStateUsing(fn ($state, $record) => Money::formatForRecord($state, $record)),
-                Tables\Columns\IconColumn::make('is_waived')->boolean(),
+                Tables\Columns\TextColumn::make('charge_state')
+                    ->label(__('Charge state'))
+                    ->badge()
+                    ->formatStateUsing(function ($state, $record) {
+                        return $record->resolvedChargeStateLabel();
+                    })
+                    ->color(function ($state, $record) {
+                        return match ($record->resolvedChargeState()) {
+                            'free' => 'success',
+                            'waived' => 'warning',
+                            'not_applicable', 'skipped_this_cycle' => 'danger',
+                            'custom' => 'info',
+                            default => 'gray',
+                        };
+                    }),
+                Tables\Columns\TextColumn::make('charge_state_reason')
+                    ->label(__('State reason'))
+                    ->placeholder('—')
+                    ->wrap(),
+                Tables\Columns\TextColumn::make('source_scope')
+                    ->label(__('Source scope'))
+                    ->state(fn ($record) => $record->sourceScopeLabel()),
             ])
             ->headerActions([
                 Tables\Actions\CreateAction::make(),

@@ -69,12 +69,42 @@ class RentalsRelationManager extends RelationManager
                         ->default(RentalStatus::Active)
                         ->required()
                         ->live(),
-                    Forms\Components\TextInput::make('monthly_rent')
-                        ->numeric()->prefix(fn () => Money::activeSymbol())->required()
-                        ->default(fn () => $this->getOwnerRecord()->rent_amount),
-                    Forms\Components\TextInput::make('security_deposit')
-                        ->numeric()->prefix(fn () => Money::activeSymbol())->default(0)
-                        ->dehydrateStateUsing(fn ($state) => $state === '' || $state === null ? 0 : $state),
+                    Forms\Components\Grid::make(2)
+                        ->schema([
+                            Forms\Components\TextInput::make('monthly_rent')
+                                ->label(__('Monthly rent'))
+                                ->numeric()
+                                ->default(fn () => $this->getOwnerRecord()->rent_amount)
+                                ->required(),
+                            Forms\Components\Select::make('monthly_rent_currency')
+                                ->label(__('Rent currency'))
+                                ->options([
+                                    'USD' => 'USD ($)',
+                                    'KHR' => 'KHR (៛)',
+                                ])
+                                ->default(fn () => $this->getOwnerRecord()->rent_currency ?: 'USD')
+                                ->live()
+                                ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                    $set('security_deposit_currency', $state);
+                                })
+                                ->required(),
+                        ]),
+                    Forms\Components\Grid::make(2)
+                        ->schema([
+                            Forms\Components\TextInput::make('security_deposit')
+                                ->label(__('Security deposit'))
+                                ->numeric()
+                                ->default(0)
+                                ->dehydrateStateUsing(fn ($state) => $state === '' || $state === null ? 0 : $state),
+                            Forms\Components\Select::make('security_deposit_currency')
+                                ->label(__('Deposit currency'))
+                                ->options([
+                                    'USD' => 'USD ($)',
+                                    'KHR' => 'KHR (៛)',
+                                ])
+                                ->default(fn () => $this->getOwnerRecord()->rent_currency ?: 'USD')
+                                ->required(),
+                        ]),
                     Forms\Components\DatePicker::make('start_date')
                         ->default(now())
                         ->required()

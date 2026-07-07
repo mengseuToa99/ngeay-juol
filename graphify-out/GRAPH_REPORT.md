@@ -1,16 +1,16 @@
-# Graph Report - rentwise  (2026-07-06)
+# Graph Report - rentwise  (2026-07-07)
 
 ## Corpus Check
-- 554 files · ~302,535 words
+- 435 files · ~244,950 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 5598 nodes · 14668 edges · 439 communities (375 shown, 64 thin omitted)
-- Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 2336 edges (avg confidence: 0.74)
+- 5662 nodes · 15223 edges · 317 communities (251 shown, 66 thin omitted)
+- Extraction: 84% EXTRACTED · 16% INFERRED · 0% AMBIGUOUS · INFERRED: 2421 edges (avg confidence: 0.74)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `a12692af`
+- Built from commit: `5909dfaf`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -61,6 +61,7 @@
 - [[_COMMUNITY_A & Aa Components|A & Aa Components]]
 - [[_COMMUNITY_Ft & Di Components|Ft & Di Components]]
 - [[_COMMUNITY_Chartoptionscopes & Br Components|Chartoptionscopes & Br Components]]
+- [[_COMMUNITY_Jt & Os Components|Jt & Os Components]]
 - [[_COMMUNITY_Support & Cn Components|Support & Cn Components]]
 - [[_COMMUNITY_Generaterentinvoices & Handle Components|Generaterentinvoices & Handle Components]]
 - [[_COMMUNITY_Createlandlord & Aftercreate Components|Createlandlord & Aftercreate Components]]
@@ -73,11 +74,9 @@
 - [[_COMMUNITY_Cacheviewforobject & Copyusingobjectmap Components|Cacheviewforobject & Copyusingobjectmap Components]]
 - [[_COMMUNITY_Tt & Xg Components|Tt & Xg Components]]
 - [[_COMMUNITY_Ei & At Components|Ei & At Components]]
-- [[_COMMUNITY_An & Color Components|An & Color Components]]
 - [[_COMMUNITY_Firstmonthbillingmode & Getcolor Components|Firstmonthbillingmode & Getcolor Components]]
 - [[_COMMUNITY_Buildsinvoiceform & Chargelabel Components|Buildsinvoiceform & Chargelabel Components]]
 - [[_COMMUNITY_Box & Canbeconsolidatedwith Components|Box & Canbeconsolidatedwith Components]]
-- [[_COMMUNITY_Ks & Ac Components|Ks & Ac Components]]
 - [[_COMMUNITY_Invoiceresource & Form Components|Invoiceresource & Form Components]]
 - [[_COMMUNITY_Planbillingmodel & Getlabel Components|Planbillingmodel & Getlabel Components]]
 - [[_COMMUNITY_Addattribute & Candecreasenestinglevel Components|Addattribute & Candecreasenestinglevel Components]]
@@ -94,27 +93,26 @@
 - [[_COMMUNITY_Table & Createactivitylogtable Components|Table & Createactivitylogtable Components]]
 - [[_COMMUNITY_Picker & Picker Components|Picker & Picker Components]]
 - [[_COMMUNITY_Invoiceexcelexport & Invoiceexcelexport Components|Invoiceexcelexport & Invoiceexcelexport Components]]
-- [[_COMMUNITY_yn|yn]]
 - [[_COMMUNITY_Action & Form Components|Action & Form Components]]
 - [[_COMMUNITY_Qt & Ii Components|Qt & Ii Components]]
-- [[_COMMUNITY_Form & Table Components|Form & Table Components]]
 - [[_COMMUNITY_Rentalsrelationmanager & Action Components|Rentalsrelationmanager & Action Components]]
 - [[_COMMUNITY_Rolepolicy & Rolepolicy Components|Rolepolicy & Rolepolicy Components]]
 - [[_COMMUNITY_Composer & Description Components|Composer & Description Components]]
 - [[_COMMUNITY_Scripts & Dev Components|Scripts & Dev Components]]
+- [[_COMMUNITY_UserFactory|UserFactory]]
 - [[_COMMUNITY_InvoiceExcelExport|InvoiceExcelExport]]
 - [[_COMMUNITY_Hasmany & Invoicesaslandlord Components|Hasmany & Invoicesaslandlord Components]]
 - [[_COMMUNITY_Dev & Faker Components|Dev & Faker Components]]
 - [[_COMMUNITY_SubscriptionResource|SubscriptionResource]]
 - [[_COMMUNITY_Plugin & Discovery Components|Plugin & Discovery Components]]
 - [[_COMMUNITY__handleEvent|_handleEvent]]
+- [[_COMMUNITY_r|r]]
 - [[_COMMUNITY_Ii|Ii]]
 - [[_COMMUNITY_app.js|app.js]]
-- [[_COMMUNITY_BelongsToLandlord.php|BelongsToLandlord.php]]
+- [[_COMMUNITY_drawLabels|drawLabels]]
 - [[_COMMUNITY_Ensureactivesubscription & Plans Components|Ensureactivesubscription & Plans Components]]
 - [[_COMMUNITY_manifest.json|manifest.json]]
 - [[_COMMUNITY_Billing|Billing]]
-- [[_COMMUNITY_RelationManager|RelationManager]]
 - [[_COMMUNITY_Te & Constructor Components|Te & Constructor Components]]
 - [[_COMMUNITY_Invoicestatus & Getcolor Components|Invoicestatus & Getcolor Components]]
 - [[_COMMUNITY_Login & Login Components|Login & Login Components]]
@@ -129,27 +127,28 @@
 - [[_COMMUNITY_Facade & 1E06026Dbe325Cba543B2306Bd7E55D66D31E4C1 Components|Facade & 1E06026Dbe325Cba543B2306Bd7E55D66D31E4C1 Components]]
 - [[_COMMUNITY_Service & Brand Components|Service & Brand Components]]
 - [[_COMMUNITY_Equipment & Photo Components|Equipment & Photo Components]]
-- [[_COMMUNITY_ScopesToActiveProperty.php|ScopesToActiveProperty.php]]
+- [[_COMMUNITY_035ae69d6f15499d2e3f68286da02306.php|035ae69d6f15499d2e3f68286da02306.php]]
+- [[_COMMUNITY_03b26c7a449adf44c801eb64e0f0650b.php|03b26c7a449adf44c801eb64e0f0650b.php]]
 - [[_COMMUNITY_Propertypolicy & Propertypolicy Components|Propertypolicy & Propertypolicy Components]]
-- [[_COMMUNITY_InvoiceLine|InvoiceLine]]
-- [[_COMMUNITY_Payment|Payment]]
-- [[_COMMUNITY_Unitpolicy & Unitpolicy Components|Unitpolicy & Unitpolicy Components]]
-- [[_COMMUNITY_Be|Be]]
+- [[_COMMUNITY_044e930deee85cfbc1b468dde7bab543.php|044e930deee85cfbc1b468dde7bab543.php]]
+- [[_COMMUNITY_06b50c80357d76a70825a66b3221c8e5.php|06b50c80357d76a70825a66b3221c8e5.php]]
 - [[_COMMUNITY_Dev & 4 Components|Dev & 4 Components]]
 - [[_COMMUNITY_Extra & Laravel Components|Extra & Laravel Components]]
+- [[_COMMUNITY_Check & Down Components|Check & Down Components]]
 - [[_COMMUNITY_Toggle & Toggle Components|Toggle & Toggle Components]]
 - [[_COMMUNITY_Switcher & Switcher Components|Switcher & Switcher Components]]
 - [[_COMMUNITY_Page & Integration Components|Page & Integration Components]]
-- [[_COMMUNITY_UserFactory|UserFactory]]
 - [[_COMMUNITY_Propertysetting & Propertysettings Components|Propertysetting & Propertysettings Components]]
 - [[_COMMUNITY_Invoicedocumentcontroller & Browsershot Components|Invoicedocumentcontroller & Browsershot Components]]
 - [[_COMMUNITY_Blade & Wireclickaction Components|Blade & Wireclickaction Components]]
 - [[_COMMUNITY_Logo & Pattern Components|Logo & Pattern Components]]
 - [[_COMMUNITY_Pattern & Logo Components|Pattern & Logo Components]]
+- [[_COMMUNITY_0a74dce72848b4e2883bcd28a1f595f8.php|0a74dce72848b4e2883bcd28a1f595f8.php]]
 - [[_COMMUNITY_Panel Components|Panel Components]]
 - [[_COMMUNITY_Synchronization Components|Synchronization Components]]
 - [[_COMMUNITY_Setlocalemiddleware Components|Setlocalemiddleware Components]]
 - [[_COMMUNITY_Rentwise Components|Rentwise Components]]
+- [[_COMMUNITY_Cache Components|Cache Components]]
 - [[_COMMUNITY_Billingpage Components|Billingpage Components]]
 - [[_COMMUNITY_Module Components|Module Components]]
 - [[_COMMUNITY_Histories Components|Histories Components]]
@@ -172,11 +171,18 @@
 - [[_COMMUNITY_simple-add-tenant.blade.php|simple-add-tenant.blade.php]]
 - [[_COMMUNITY_06B50C80357D76A70825A66B3221C8E5 Components|06B50C80357D76A70825A66B3221C8E5 Components]]
 - [[_COMMUNITY_simple-end-tenancy.blade.php|simple-end-tenancy.blade.php]]
+- [[_COMMUNITY_45d55ae336c596aa40d03222195397b9.php|45d55ae336c596aa40d03222195397b9.php]]
+- [[_COMMUNITY_845b5f99e072d0b4ed4511d86750c1f1.php|845b5f99e072d0b4ed4511d86750c1f1.php]]
 - [[_COMMUNITY_5C2896C0A827646E925E10376Bda0304 Components|5C2896C0A827646E925E10376Bda0304 Components]]
-- [[_COMMUNITY_AppServiceProvider|AppServiceProvider]]
+- [[_COMMUNITY_884d3416ba71745f64da4c2f0e691b0f.blade.php|884d3416ba71745f64da4c2f0e691b0f.blade.php]]
 - [[_COMMUNITY_BrandLogo|BrandLogo]]
 - [[_COMMUNITY_sw.js|sw.js]]
-- [[_COMMUNITY_Collection|Collection]]
+- [[_COMMUNITY_e|e]]
+- [[_COMMUNITY_de|de]]
+- [[_COMMUNITY_te|te]]
+- [[_COMMUNITY_UtilityWaiverResource|UtilityWaiverResource]]
+- [[_COMMUNITY_InvoiceLine|InvoiceLine]]
+- [[_COMMUNITY_pe|pe]]
 - [[_COMMUNITY_graphify reference query, path, explain|graphify reference: query, path, explain]]
 - [[_COMMUNITY_Local Setup|Local Setup]]
 - [[_COMMUNITY_Localization|Localization]]
@@ -185,33 +191,32 @@
 - [[_COMMUNITY_graphify reference add a URL and watch a folder|graphify reference: add a URL and watch a folder]]
 - [[_COMMUNITY_graphify reference commit hook and native CLAUDE.md integration|graphify reference: commit hook and native CLAUDE.md integration]]
 - [[_COMMUNITY_graphify reference incremental update and cluster-only|graphify reference: incremental update and cluster-only]]
+- [[_COMMUNITY_2026_07_07_000002_create_charge_definitions_and_rules.php|2026_07_07_000002_create_charge_definitions_and_rules.php]]
 - [[_COMMUNITY_SubscriptionAction.php|SubscriptionAction.php]]
 - [[_COMMUNITY_graphify reference GitHub clone and cross-repo merge|graphify reference: GitHub clone and cross-repo merge]]
 - [[_COMMUNITY_graphify reference transcribe video and audio|graphify reference: transcribe video and audio]]
 - [[_COMMUNITY_AGENTS|AGENTS.md]]
 - [[_COMMUNITY_extraction-spec|extraction-spec.md]]
-- [[_COMMUNITY_W|W]]
 - [[_COMMUNITY_EnsureActiveSubscription|EnsureActiveSubscription]]
 - [[_COMMUNITY_subscriptions|subscriptions]]
 - [[_COMMUNITY_SubscriptionService|SubscriptionService]]
 - [[_COMMUNITY_WaiversRelationManager.php|WaiversRelationManager.php]]
-- [[_COMMUNITY_St|St]]
+- [[_COMMUNITY_ChatRoomType.php|ChatRoomType.php]]
 - [[_COMMUNITY_removeAttribute|removeAttribute]]
 - [[_COMMUNITY_SubscriptionPlanResource|SubscriptionPlanResource]]
 - [[_COMMUNITY_SetLocale.php|SetLocale.php]]
-- [[_COMMUNITY_RolesAndPermissionsSeeder|RolesAndPermissionsSeeder]]
 
 ## God Nodes (most connected - your core abstractions)
-1. `User` - 174 edges
-2. `x()` - 108 edges
-3. `Rental` - 89 edges
-4. `_update()` - 89 edges
-5. `Invoice` - 88 edges
-6. `ActiveProperty` - 88 edges
-7. `_update()` - 88 edges
-8. `MonthlyBilling` - 80 edges
-9. `Unit` - 80 edges
-10. `Subscription` - 79 edges
+1. `User` - 181 edges
+2. `Rental` - 110 edges
+3. `x()` - 108 edges
+4. `Invoice` - 101 edges
+5. `ActiveProperty` - 99 edges
+6. `Unit` - 91 edges
+7. `_update()` - 89 edges
+8. `_update()` - 88 edges
+9. `MonthlyBilling` - 84 edges
+10. `UtilityBilling` - 81 edges
 
 ## Surprising Connections (you probably didn't know these)
 - `Dark Mode Toggle` --semantically_similar_to--> `Dark Mode Toggle`  [INFERRED] [semantically similar]
@@ -233,123 +238,119 @@
 - **Laundromat Operation** — storage_app_public_2_01kvmmrh9p81rt7j7wfxfz74jr_laundromat, storage_app_public_2_01kvmmrh9p81rt7j7wfxfz74jr_attendants, storage_app_public_2_01kvmmrh9p81rt7j7wfxfz74jr_washing_machines, storage_app_public_2_01kvmmrh9p81rt7j7wfxfz74jr_laundry_shelves [INFERRED 0.85]
 - **Laundromat Scene** — storage_app_public_2_01kwetvpr9atg32jjq0w8c83ng_laundromat_photo, storage_app_public_2_01kwetvpr9atg32jjq0w8c83ng_staff_uniforms, storage_app_public_2_01kwetvpr9atg32jjq0w8c83ng_commercial_laundry_equipment, storage_app_public_2_01kwetvpr9atg32jjq0w8c83ng_packaged_laundry [EXTRACTED 1.00]
 
-## Communities (439 total, 64 thin omitted)
+## Communities (317 total, 66 thin omitted)
 
 ### Community 0 - "Chart & Abutsend Components"
 Cohesion: 0.01
-Nodes (115): acquireContext(), addControllers(), addPlugins(), addScales(), beforeDatasetDraw(), beforeDatasetsDraw(), bh(), bindResponsiveEvents() (+107 more)
+Nodes (129): _a(), aa(), acquireContext(), addControllers(), addPlugins(), addScales(), afterAutoSkip(), Ai() (+121 more)
 
 ### Community 1 - "Editor & Actions Components"
 Cohesion: 0.02
-Nodes (105): activateAttributeIfSupported(), applyBlockAttribute(), attachmentDidChangeAttributes(), attachmentDidChangeUploadProgress(), attachmentIsManaged(), canRedo(), canSyncDocumentView(), canUndo() (+97 more)
+Nodes (109): activateAttributeIfSupported(), attachmentDidChangeAttributes(), attachmentDidChangeUploadProgress(), attachmentForFile(), attachmentIsManaged(), attributesForFile(), Ca(), canRedo() (+101 more)
 
 ### Community 2 - "Chart & Aa Components"
 Cohesion: 0.02
-Nodes (114): defaultWeekSettings(), aa(), active(), addControllers(), addPlugins(), addScales(), an(), _animateOptions() (+106 more)
+Nodes (109): rs(), ks(), aa(), addControllers(), addElements(), addPlugins(), addScales(), an() (+101 more)
 
 ### Community 3 - "Editor & Zt Components"
-Cohesion: 0.04
-Nodes (106): zt(), Aa(), Ac(), af(), ai(), al(), ao(), Be() (+98 more)
+Cohesion: 0.10
+Nodes (36): gt(), It(), ad(), An(), cd(), dd(), Fn(), Fr() (+28 more)
 
 ### Community 4 - "Addbox & Addelements Components"
-Cohesion: 0.05
-Nodes (75): addBox(), afterBuildTicks(), afterCalculateLabelRotation(), afterDataLimits(), afterDraw(), afterFit(), afterSetDimensions(), afterTickToLabelConversion() (+67 more)
+Cohesion: 0.04
+Nodes (86): addBox(), afterBuildTicks(), afterCalculateLabelRotation(), afterDataLimits(), afterDraw(), afterFit(), afterSetDimensions(), afterTickToLabelConversion() (+78 more)
 
 ### Community 5 - "Select & G Components"
-Cohesion: 0.04
-Nodes (35): _(), [g](), Y(), yd(), p(), b(), Be, c() (+27 more)
+Cohesion: 0.08
+Nodes (66): _(), [g](), handleEvent(), [x](), $c(), D(), E(), g() (+58 more)
 
 ### Community 6 - "Mt & Addattributeatrange Components"
-Cohesion: 0.04
-Nodes (99): mt(), addAttributeAtRange(), addAttributesAtRange(), addHTMLAttribute(), appendText(), applyBlockAttributeAtRange(), breakFormattedBlock(), breaksOnReturn() (+91 more)
+Cohesion: 0.03
+Nodes (115): mt(), addAttributeAtRange(), addAttributesAtRange(), addHTMLAttribute(), appendText(), applyBlockAttributeAtRange(), breakFormattedBlock(), breaksOnReturn() (+107 more)
 
 ### Community 7 - "Generaterentinvoices & Mount Components"
-Cohesion: 0.04
-Nodes (103): et(), us(), ad(), adjustHitBoxes(), ae(), af(), C(), _calculateBarValuePixels() (+95 more)
+Cohesion: 0.05
+Nodes (98): et(), us(), adjustHitBoxes(), ae(), af(), bf(), buildTicks(), calculateLabelRotation() (+90 more)
 
 ### Community 8 - "Syncunitoccupancy & Billingtype Components"
-Cohesion: 0.07
-Nodes (17): getLabel(), options(), applyActivePropertyScope(), getEloquentQuery(), getNavigationGroup(), Builder, shouldRegisterNavigation(), Form (+9 more)
+Cohesion: 0.38
+Nodes (5): applyActivePropertyScope(), getEloquentQuery(), getNavigationGroup(), Builder, shouldRegisterNavigation()
 
 ### Community 9 - "Et & Us Components"
-Cohesion: 0.06
-Nodes (18): getLabel(), options(), EnsureActiveSubscription, Closure, Request, Response, InvoicePolicy, LandlordOwnedPolicy (+10 more)
+Cohesion: 0.29
+Nodes (7): bootBelongsToLandlord(), landlord(), BelongsTo, LandlordScope, Builder, Model, Scope
 
 ### Community 10 - "Attachfiles & Backspace Components"
-Cohesion: 0.05
-Nodes (58): addElements(), aspectRatio(), buildOrUpdateControllers(), buildOrUpdateElements(), Ca(), co(), _computeLabelSizes(), _dataCheck() (+50 more)
+Cohesion: 0.04
+Nodes (29): GenerateRentInvoices, Carbon, NotifyOverdueInvoices, SyncUnitOccupancy, UpdateRentalStatuses, getLabel(), options(), Builder (+21 more)
 
 ### Community 11 - "Scopestoactiveproperty & Applyactivepropertyscope Components"
-Cohesion: 0.08
-Nodes (6): AdminSettings, Form, Billing, SubscriptionAccess, SimpleDashboard, Page
+Cohesion: 0.04
+Nodes (72): backspace(), beforeinput(), canApplyToDocument(), compositionend(), compositionstart(), compositionupdate(), cut(), d() (+64 more)
 
 ### Community 12 - "Billing & Billing Components"
-Cohesion: 0.04
-Nodes (31): chargeLabel(), grandTotal(), invoiceFormSchema(), meterHint(), onRoomSelected(), Get, Set, roomOptions() (+23 more)
+Cohesion: 0.24
+Nodes (10): Aa(), cf(), Jc(), Ln(), ma(), qa(), qc(), uo() (+2 more)
 
 ### Community 13 - "Sg & At Components"
-Cohesion: 0.13
-Nodes (93): _(), [x](), Sg(), as(), at(), B(), br(), Bt() (+85 more)
+Cohesion: 0.11
+Nodes (62): _(), Sg(), at(), B(), br(), Bt(), ca(), Cr() (+54 more)
 
 ### Community 14 - "App & Echo Components"
 Cohesion: 0.05
 Nodes (61): _(), C(), D(), J(), O(), U(), v(), W() (+53 more)
 
 ### Community 15 - "Handleevent & Picker Components"
-Cohesion: 0.06
-Nodes (93): u(), be(), de(), Dl(), Fe(), j(), je(), le() (+85 more)
+Cohesion: 0.02
+Nodes (49): Notification, ProcessSubscriptions, chargeSubscription(), supportsAutoRenew(), Form, Model, Model, self (+41 more)
 
 ### Community 16 - "Ja & After Components"
 Cohesion: 0.03
-Nodes (126): Qt(), Ac(), after(), as(), before(), Bi(), _cachedScopes(), chartOptionScopes() (+118 more)
+Nodes (123): Qt(), after(), Ag(), before(), chartOptionScopes(), constructor(), daysInMonth(), De() (+115 more)
 
 ### Community 17 - "Autosave & Aa Components"
-Cohesion: 0.13
-Nodes (32): $(), processTextNode(), _a(), Ae(), ar(), f(), fe(), g() (+24 more)
-
-### Community 18 - "Ah & Applystack Components"
-Cohesion: 0.06
-Nodes (17): ActionGroup, pageDocumentActions(), tableDocumentActions(), LoginController, Request, Controller, InvoiceDocumentController, Request (+9 more)
+Cohesion: 0.12
+Nodes (28): B(), da(), En(), fa(), Fi(), fn(), Ii(), je() (+20 more)
 
 ### Community 19 - "Ji & Addelements Components"
-Cohesion: 0.05
-Nodes (62): afterBuildTicks(), afterCalculateLabelRotation(), afterDataLimits(), afterDraw(), afterFit(), afterSetDimensions(), afterTickToLabelConversion(), afterUpdate() (+54 more)
+Cohesion: 0.06
+Nodes (64): afterBuildTicks(), afterCalculateLabelRotation(), afterDataLimits(), afterDraw(), afterFit(), afterSetDimensions(), afterTickToLabelConversion(), afterUpdate() (+56 more)
 
 ### Community 20 - "Upload & Ba Components"
 Cohesion: 0.06
-Nodes (46): ba(), bi(), c(), ca(), clickPercent(), constructor(), define(), e() (+38 more)
+Nodes (44): ba(), bi(), c(), ca(), clickPercent(), constructor(), e(), getExtension() (+36 more)
 
 ### Community 21 - "Actiongroup & Hasinvoicedocumentactions Components"
-Cohesion: 0.02
-Nodes (54): Notification, ProcessSubscriptions, chargeSubscription(), supportsAutoRenew(), MaintenanceMessage, BelongsTo, HasMany, Subscription (+46 more)
+Cohesion: 0.03
+Nodes (34): MaintenanceMessage, BelongsTo, Payment, BelongsTo, BelongsTo, HasMany, HasOne, LogOptions (+26 more)
 
 ### Community 22 - "Ye & Add Components"
-Cohesion: 0.04
-Nodes (51): addEventListener(), Ag(), Du(), Ef(), en(), eu(), fe(), features() (+43 more)
+Cohesion: 0.07
+Nodes (37): Ac(), alpha(), an(), as(), color(), darken(), Dc(), desaturate() (+29 more)
 
 ### Community 23 - "Bi & Bn Components"
-Cohesion: 0.04
-Nodes (12): Bi(), bn(), Id(), ji(), kd(), qd(), qi(), Ri() (+4 more)
+Cohesion: 0.05
+Nodes (8): Bi(), Id(), kd(), on(), qi(), Ri(), te(), Vi()
 
 ### Community 25 - "Userstatus & Getcolor Components"
 Cohesion: 0.05
 Nodes (12): LocationFields, LandlordResource, Builder, Form, Infolist, Table, Builder, Form (+4 more)
 
 ### Community 27 - "Editunit & Getheaderactions Components"
-Cohesion: 0.05
-Nodes (15): EditUnit, Action, Form, Table, UnitResource, Builder, Form, Table (+7 more)
+Cohesion: 0.02
+Nodes (35): getLabel(), options(), getLabel(), options(), Collection, Collection, LandlordProfile, BelongsTo (+27 more)
 
 ### Community 28 - "Attachmentmanagerdidrequestremovalofattachment & Breaksonreturn Components"
 Cohesion: 0.07
-Nodes (62): gt(), It(), sa(), ad(), An(), cd(), dd(), df() (+54 more)
+Nodes (61): e(), i(), l(), n(), Ni(), o(), t(), u() (+53 more)
 
 ### Community 29 - "Support & Apply Components"
 Cohesion: 0.06
-Nodes (48): ai(), apply(), B(), co(), Cr(), $e(), es(), Et() (+40 more)
+Nodes (44): clearSelection(), ai(), apply(), co(), Cr(), $e(), es(), Et() (+36 more)
 
 ### Community 31 - "Arrowleft & Arrowright Components"
-Cohesion: 0.02
-Nodes (35): ConsumptionHistory, Form, Collection, Form, RoomStatusWidget, Collection, PropertySwitcher, SimpleAddTenant (+27 more)
+Cohesion: 0.06
+Nodes (6): PropertySettings, SimpleDashboard, Get, PropertySwitcher, ActiveProperty, UtilityBillingDesktopTest
 
 ### Community 32 - "Notifications & Actions Components"
 Cohesion: 0.06
@@ -360,24 +361,28 @@ Cohesion: 0.05
 Nodes (5): Builder, Carbon, Collection, SubscriptionAccess, UtilityBilling
 
 ### Community 34 - "Monthlybilling & Canaccess Components"
-Cohesion: 0.12
-Nodes (16): canSetCurrentAttribute(), canSetCurrentBlockAttribute(), canSetCurrentTextAttribute(), compositionControllerDidRequestDeselectingAttachment(), compositionDidStartEditingAttachment(), didClickAttachment(), findAttachmentForElement(), getAttachmentAndPositionById() (+8 more)
+Cohesion: 0.08
+Nodes (39): Ss(), buildTicks(), calculateLabelRotation(), _computeAngle(), _computeLabelItems(), computeTickLimit(), diff(), _drawArgs() (+31 more)
 
 ### Community 35 - "Ss & Acquirecontext Components"
-Cohesion: 0.07
-Nodes (58): $(), Ss(), $h(), Kg(), kt(), Te(), adjustHitBoxes(), bc() (+50 more)
+Cohesion: 0.11
+Nodes (36): $(), $h(), kt(), adjustHitBoxes(), bc(), Bl(), clear(), _computeLabelArea() (+28 more)
 
 ### Community 36 - "Fo & Localweekday Components"
-Cohesion: 0.06
-Nodes (47): tt(), ao(), Fl(), Ll(), tl(), Vf(), Wf(), xt() (+39 more)
+Cohesion: 0.09
+Nodes (33): Vf(), Wf(), xt(), alpha(), be(), beforeDatasetsDraw(), beforeDraw(), ea() (+25 more)
+
+### Community 37 - "Po & Bindevents Components"
+Cohesion: 0.05
+Nodes (18): ActionGroup, pageDocumentActions(), tableDocumentActions(), RevenueChartWidget, InvoiceDocumentController, Request, StreamedResponse, Invoice (+10 more)
 
 ### Community 38 - "At & Bs Components"
 Cohesion: 0.20
 Nodes (14): active(), _animateOptions(), cancel(), _createAnimations(), _createDescriptors(), _descriptors(), kh(), _notify() (+6 more)
 
 ### Community 39 - "Cf & Clone Components"
-Cohesion: 0.06
-Nodes (42): Ce(), cf(), clone(), create(), dtFormatter(), Es(), extract(), format() (+34 more)
+Cohesion: 0.07
+Nodes (39): isSynced(), ar(), cf(), clone(), create(), dtFormatter(), Es(), extract() (+31 more)
 
 ### Community 40 - "Listinvoices & Listinvoices Components"
 Cohesion: 0.06
@@ -385,127 +390,123 @@ Nodes (15): ListInvoices, ListLandlords, ListMaintenanceRequests, ListPayments, 
 
 ### Community 41 - "Editlandlord & Editlandlord Components"
 Cohesion: 0.07
-Nodes (13): EditLandlord, EditMaintenanceRequest, EditPayment, EditProperty, EditPropertyUtility, EditRental, EditSubscriptionPlan, EditSubscription (+5 more)
+Nodes (14): EditLandlord, EditMaintenanceRequest, EditPayment, EditProperty, EditPropertyUtility, EditRental, EditSubscriptionPayment, EditSubscriptionPlan (+6 more)
 
 ### Community 42 - "Chart & Eo Components"
-Cohesion: 0.20
-Nodes (3): Form, Table, SubscriptionPaymentResource
+Cohesion: 0.06
+Nodes (19): calculateTotals(), chargeLabel(), grandTotal(), invoiceFormSchema(), meterHint(), onRoomSelected(), Get, Set (+11 more)
 
 ### Community 43 - "A & Aa Components"
-Cohesion: 0.16
-Nodes (32): aa(), ba(), Be(), Bi(), br(), Ca(), ce(), Dn() (+24 more)
+Cohesion: 0.15
+Nodes (34): aa(), ba(), Be(), Bi(), br(), Ca(), ce(), Dn() (+26 more)
 
 ### Community 44 - "Ft & Di Components"
-Cohesion: 0.14
-Nodes (16): box(), canBeConsolidatedWith(), canBeGroupedWith(), fromUCS2String(), getDirection(), getTargetDOMRange(), hasSameAttributesAsPiece(), hasSameConstructorAs() (+8 more)
+Cohesion: 0.12
+Nodes (18): box(), canBeConsolidatedWith(), canBeGroupedWith(), findLineBreakInDirectionFromPosition(), fromUCS2String(), getDirection(), getTargetDOMRange(), hasSameAttributesAsPiece() (+10 more)
 
 ### Community 45 - "Chartoptionscopes & Br Components"
-Cohesion: 0.03
-Nodes (26): GenerateRentInvoices, Carbon, NotifyOverdueInvoices, SyncUnitOccupancy, UpdateRentalStatuses, RevenueChartWidget, Invoice, Attribute (+18 more)
+Cohesion: 0.10
+Nodes (23): compositionControllerDidFocus(), compositionDidRequestChangingSelectionToLocationRange(), createDOMRangeFromPoint(), createLocationRangeFromDOMRange(), domRangeWithinElement(), expandSelectionAroundCommonAttribute(), expandSelectionForEditing(), getLocationAtPoint() (+15 more)
+
+### Community 46 - "Jt & Os Components"
+Cohesion: 0.06
+Nodes (47): localWeekday(), localWeekNumber(), localWeekYear(), afterAutoSkip(), ar(), Bi(), buildLookupTable(), _calculateBarIndexPixels() (+39 more)
 
 ### Community 47 - "Support & Cn Components"
 Cohesion: 0.25
-Nodes (17): at(), de(), dt(), fr(), Gt(), It(), jt(), lr() (+9 more)
+Nodes (17): Ae(), at(), de(), dt(), fr(), Gt(), It(), jt() (+9 more)
 
 ### Community 48 - "Generaterentinvoices & Handle Components"
-Cohesion: 0.08
-Nodes (37): zi(), Bt(), xo(), addEventListener(), _computeLabelSizes(), cs(), Ct(), D() (+29 more)
+Cohesion: 0.11
+Nodes (6): EditUnit, Action, Form, Table, UnitResource, HasShieldPermissions
 
 ### Community 49 - "Createlandlord & Aftercreate Components"
-Cohesion: 0.14
-Nodes (16): ks(), vi(), Ec(), Pc(), cc(), first(), ic(), interpolate() (+8 more)
+Cohesion: 0.12
+Nodes (24): lt(), drawGrid(), ec(), Fc(), G(), getDistanceFromCenterForValue(), getIndexAngle(), _getLegendItemAt() (+16 more)
 
 ### Community 51 - "Issynced & Ce Components"
-Cohesion: 0.05
-Nodes (61): localWeekday(), localWeekNumber(), localWeekYear(), afterAutoSkip(), buildLookupTable(), buildTicks(), C(), cr() (+53 more)
+Cohesion: 0.10
+Nodes (35): buildOrUpdateElements(), C(), Co(), cr(), _dataCheck(), endOf(), Et(), format() (+27 more)
 
 ### Community 52 - "Yn & Appendattachmentwithattributes Components"
-Cohesion: 0.12
-Nodes (27): Yn(), appendAttachmentWithAttributes(), appendBlockForAttributesWithElement(), appendBlockForElement(), appendBlockForTextNode(), appendEmptyBlock(), appendPiece(), appendStringToTextAtIndex() (+19 more)
+Cohesion: 0.08
+Nodes (38): Yn(), Et(), appendAttachmentWithAttributes(), appendBlockForAttributesWithElement(), appendBlockForElement(), appendBlockForTextNode(), appendEmptyBlock(), appendPiece() (+30 more)
 
 ### Community 53 - "Logincontroller & Logincontroller Components"
 Cohesion: 0.08
 Nodes (24): For /graphify add and --watch, For /graphify query, For the commit hook and native CLAUDE.md integration, For --update and --cluster-only, /graphify, Honesty Rules, Interpreter guard for subcommands, Part A - Structural extraction for code files (+16 more)
 
 ### Community 54 - "Actionisexternal & Caninvokeaction Components"
-Cohesion: 0.05
-Nodes (41): actionIsExternal(), canAcceptDataTransfer(), canInvokeAction(), compositionControllerDidBlur(), compositionControllerDidFocus(), compositionControllerDidRender(), compositionControllerDidSyncDocumentView(), compositionDidAddAttachment() (+33 more)
+Cohesion: 0.09
+Nodes (24): actionIsExternal(), canInvokeAction(), compositionControllerDidBlur(), compositionControllerDidRender(), compositionControllerDidSyncDocumentView(), compositionDidAddAttachment(), compositionDidChangeAttachmentPreviewURL(), compositionDidChangeCurrentAttributes() (+16 more)
 
 ### Community 55 - "Paymentmethod & Getlabel Components"
-Cohesion: 0.06
-Nodes (35): getLabel(), options(), getLabel(), options(), getLabel(), options(), getLabel(), options() (+27 more)
+Cohesion: 0.15
+Nodes (5): LoginController, Request, Controller, Request, TenantPortalController
 
 ### Community 56 - "Cacheviewforobject & Copyusingobjectmap Components"
-Cohesion: 0.06
-Nodes (47): attachmentForFile(), attributesForFile(), cacheViewForObject(), copyUsingObjectMap(), copyUsingObjectsFromDocument(), copyWithBaseBlockAttributes(), createAttachmentNodes(), createChildView() (+39 more)
+Cohesion: 0.12
+Nodes (22): cacheViewForObject(), createAttachmentNodes(), createChildView(), createContainerElement(), createNodes(), createStringNodes(), findOrCreateCachedChildView(), findViewForObject() (+14 more)
 
 ### Community 57 - "Tt & Xg Components"
-Cohesion: 0.20
-Nodes (3): Builder, Carbon, SubscriptionAccess
+Cohesion: 0.05
+Nodes (46): addEventListener(), Au(), ba(), beforeDatasetDraw(), beforeDatasetsDraw(), bu(), ch(), cu() (+38 more)
 
 ### Community 58 - "Ei & At Components"
-Cohesion: 0.18
-Nodes (4): BelongsTo, PropertySetting, Carbon, ProratingService
-
-### Community 59 - "An & Color Components"
 Cohesion: 0.12
-Nodes (23): Ah(), determineDataLimits(), Dh(), Ea(), ed(), getAllParsedValues(), getBasePosition(), getBaseValue() (+15 more)
+Nodes (6): AdminSettings, Form, ConsumptionHistory, Form, HasForms, InteractsWithForms
 
 ### Community 60 - "Firstmonthbillingmode & Getcolor Components"
-Cohesion: 0.05
-Nodes (15): EditInvoice, Form, Model, Action, Form, Set, Table, PropertyUtilityResource (+7 more)
+Cohesion: 0.06
+Nodes (12): Action, Form, Set, Table, PropertyUtilityResource, UtilityUsageWidget, ChargeRule, BelongsTo (+4 more)
 
 ### Community 61 - "Buildsinvoiceform & Chargelabel Components"
-Cohesion: 0.07
-Nodes (10): MaintenanceRequestResource, Action, Form, Infolist, Table, MaintenanceRequest, BelongsTo, HasMany (+2 more)
+Cohesion: 0.15
+Nodes (5): MaintenanceRequestResource, Action, Form, Infolist, Table
 
 ### Community 62 - "Box & Canbeconsolidatedwith Components"
-Cohesion: 0.25
-Nodes (8): e(), i(), l(), n(), Ni(), o(), t(), v()
-
-### Community 63 - "Ks & Ac Components"
-Cohesion: 0.08
-Nodes (37): _a(), afterAutoSkip(), Ai(), Al(), buildLookupTable(), daysInMonth(), daysInYear(), getDecimalForPixel() (+29 more)
+Cohesion: 0.06
+Nodes (4): Builder, Carbon, SubscriptionAccess, SimpleBillingInvoice
 
 ### Community 64 - "Invoiceresource & Form Components"
-Cohesion: 0.05
-Nodes (54): an(), applyStack(), At(), Au(), ba(), beforeDraw(), Bs(), bu() (+46 more)
+Cohesion: 0.04
+Nodes (69): add(), aspectRatio(), average(), Ca(), _cachedScopes(), clear(), cn(), count() (+61 more)
 
 ### Community 65 - "Planbillingmodel & Getlabel Components"
-Cohesion: 0.10
-Nodes (33): os(), applyStack(), ar(), as(), Bi(), _calculateBarIndexPixels(), _calculateBarValuePixels(), calculateCircumference() (+25 more)
+Cohesion: 0.09
+Nodes (28): applyStack(), as(), _calculateBarValuePixels(), calculateCircumference(), _circumference(), countVisibleElements(), datasetAnimationScopeKeys(), dr() (+20 more)
 
 ### Community 66 - "Addattribute & Candecreasenestinglevel Components"
-Cohesion: 0.05
-Nodes (21): getLabel(), options(), CreateLandlord, CreateMaintenanceRequest, CreatePayment, CreateProperty, CreatePropertyUtility, CreateRental (+13 more)
+Cohesion: 0.04
+Nodes (26): CreateLandlord, CreateMaintenanceRequest, CreatePayment, CreateProperty, CreatePropertyUtility, CreateRental, Model, CreateSubscriptionPayment (+18 more)
 
 ### Community 67 - "Afterdatasetsupdate & Buildorupdatecontrollers Components"
 Cohesion: 0.15
 Nodes (20): afterDatasetsUpdate(), buildOrUpdateControllers(), _destroyDatasetMeta(), getController(), getDatasetMeta(), getMaxBorderWidth(), getStyle(), hide() (+12 more)
 
 ### Community 68 - "A & Afterautoskip Components"
-Cohesion: 0.29
-Nodes (10): acquireContext(), getContext(), ha(), ir(), ja(), Ns(), pr(), pt() (+2 more)
+Cohesion: 0.11
+Nodes (23): tt(), ac(), Ai(), aspectRatio(), br(), ca(), getValueForDistanceFromCenter(), hl() (+15 more)
 
 ### Community 69 - "Sa & Ii Components"
-Cohesion: 0.06
-Nodes (49): rs(), ft(), _a(), add(), addElements(), ba(), beforeUpdate(), buildOrUpdateElements() (+41 more)
+Cohesion: 0.07
+Nodes (38): At(), Bi(), Bs(), cc(), _computeLabelSizes(), Ea(), ed(), Fc() (+30 more)
 
 ### Community 70 - "Ae & At Components"
-Cohesion: 0.05
-Nodes (61): afterDatasetsUpdate(), _calculateBarIndexPixels(), calculateCircumference(), _circumference(), _computeAngle(), countVisibleElements(), createResolver(), _d() (+53 more)
+Cohesion: 0.03
+Nodes (95): ad(), addElements(), Ah(), applyStack(), buildOrUpdateElements(), C(), _calculateBarIndexPixels(), _calculateBarValuePixels() (+87 more)
 
 ### Community 71 - "Viewlandlord & Viewlandlord Components"
 Cohesion: 0.15
 Nodes (9): ViewLandlord, ViewMaintenanceRequest, ViewRental, Infolist, ViewSubscriptionPayment, Infolist, ViewSubscriptionPlan, ViewSubscription (+1 more)
 
 ### Community 72 - "Clear & Cn Components"
-Cohesion: 0.02
-Nodes (41): InvoiceResource, Action, Form, Table, InvoiceLinesRelationManager, Form, Table, PaymentsRelationManager (+33 more)
+Cohesion: 0.03
+Nodes (16): Action, Form, Table, PaymentResource, Builder, Form, Table, Infolist (+8 more)
 
 ### Community 73 - "Landlordownedpolicy & Landlordownedpolicy Components"
-Cohesion: 0.17
-Nodes (3): Builder, Infolist, SubscriptionResource
+Cohesion: 0.04
+Nodes (143): zt(), Dl(), _a(), Ac(), Ae(), af(), ai(), al() (+135 more)
 
 ### Community 74 - "Package & Devdependencies Components"
 Cohesion: 0.13
@@ -513,35 +514,35 @@ Nodes (14): devDependencies, axios, concurrently, laravel-vite-plugin, puppeteer
 
 ### Community 75 - "Rs & Ge Components"
 Cohesion: 0.08
-Nodes (33): eh(), ih(), parseFormatForOpts(), sh(), vo(), calculateLabelRotation(), _computeGridLineItems(), drawGrid() (+25 more)
+Nodes (37): addEventListener(), _computeLabelSizes(), cs(), D(), el(), Eo(), Fo(), gr() (+29 more)
 
 ### Community 76 - "Require & Dompdf Components"
 Cohesion: 0.14
 Nodes (14): require, barryvdh/laravel-dompdf, bezhansalleh/filament-shield, filament/filament, filament/spatie-laravel-media-library-plugin, laravel/fortify, laravel/framework, laravel/sanctum (+6 more)
 
 ### Community 77 - "Table & Createactivitylogtable Components"
-Cohesion: 0.16
-Nodes (3): CreateActivityLogTable, AddBatchUuidColumnToActivityLogTable, Migration
+Cohesion: 0.13
+Nodes (4): CreateActivityLogTable, AddEventColumnToActivityLogTable, AddBatchUuidColumnToActivityLogTable, Migration
 
 ### Community 79 - "Picker & Picker Components"
-Cohesion: 0.15
-Nodes (4): constructor(), handleEvent(), style(), update()
+Cohesion: 0.17
+Nodes (3): constructor(), style(), update()
 
 ### Community 80 - "Invoiceexcelexport & Invoiceexcelexport Components"
-Cohesion: 0.05
-Nodes (59): oa(), beforeinput(), canApplyToDocument(), compositionend(), compositionstart(), compositionupdate(), copy(), cut() (+51 more)
-
-### Community 81 - "yn"
-Cohesion: 0.04
-Nodes (35): getLabel(), options(), getLabel(), options(), addInterval(), getLabel(), options(), CarbonInterface (+27 more)
+Cohesion: 0.13
+Nodes (37): $(), _a(), ar(), Cn(), d(), f(), g(), Ge() (+29 more)
 
 ### Community 82 - "Action & Form Components"
 Cohesion: 0.12
 Nodes (16): Common Commands, Database And Seeds, Environment Variables, Feature Overview, Khmer Localization, Known Incomplete Modules / Roadmap, Local Setup, PDF Generation (+8 more)
 
+### Community 83 - "Qt & Ii Components"
+Cohesion: 0.14
+Nodes (16): canSetCurrentAttribute(), canSetCurrentBlockAttribute(), canSetCurrentTextAttribute(), copy(), didClickAttachment(), dragstart(), findAttachmentForElement(), getAttachmentById() (+8 more)
+
 ### Community 85 - "Rentalsrelationmanager & Action Components"
-Cohesion: 0.11
-Nodes (25): average(), cd(), clear(), cn(), Da(), getCenterPoint(), getDistanceFromCenterForValue(), getPointPositionForValue() (+17 more)
+Cohesion: 0.09
+Nodes (38): ft(), J(), Ki(), qr(), _a(), active(), add(), _animateOptions() (+30 more)
 
 ### Community 86 - "Rolepolicy & Rolepolicy Components"
 Cohesion: 0.40
@@ -555,33 +556,37 @@ Nodes (8): description, keywords, license, minimum-stability, name, prefer-stabl
 Cohesion: 0.22
 Nodes (9): scripts, dev, post-autoload-dump, post-create-project-cmd, post-root-package-install, post-update-cmd, pre-package-uninstall, setup (+1 more)
 
+### Community 89 - "UserFactory"
+Cohesion: 0.16
+Nodes (14): Ef(), features(), getMinDaysInFirstWeek(), getMinimumDaysInFirstWeek(), getStartOfWeek(), getWeekendDays(), getWeekendWeekdays(), getWeekSettings() (+6 more)
+
 ### Community 91 - "Hasmany & Invoicesaslandlord Components"
 Cohesion: 0.05
-Nodes (72): attachFiles(), createElement(), createLinkHTML(), decreaseListLevel(), deleteByDrag(), dragstart(), drop(), findPositionAtIndexAndOffset() (+64 more)
+Nodes (70): sa(), ii(), ni(), attachFiles(), canAcceptDataTransfer(), createElement(), createLinkHTML(), decreaseListLevel() (+62 more)
 
 ### Community 92 - "Dev & Faker Components"
 Cohesion: 0.25
 Nodes (8): require-dev, fakerphp/faker, laravel/pail, laravel/pint, laravel/sail, mockery/mockery, nunomaduro/collision, phpunit/phpunit
 
 ### Community 93 - "SubscriptionResource"
-Cohesion: 0.06
-Nodes (44): ArrowLeft(), ArrowRight(), attachmentManagerDidRequestRemovalOfAttachment(), backspace(), compositionControllerDidRequestRemovalOfAttachment(), d(), delete(), deleteByComposition() (+36 more)
+Cohesion: 0.10
+Nodes (26): ArrowLeft(), ArrowRight(), attachmentManagerDidRequestRemovalOfAttachment(), compositionControllerDidRequestRemovalOfAttachment(), createDOMRangeFromLocationRange(), editAttachment(), expandSelectionInDirection(), findContainerAndOffsetFromLocation() (+18 more)
 
 ### Community 94 - "Plugin & Discovery Components"
 Cohesion: 0.29
 Nodes (7): pestphp/pest-plugin, php-http/discovery, config, allow-plugins, optimize-autoloader, preferred-install, sort-packages
 
 ### Community 95 - "_handleEvent"
-Cohesion: 0.10
-Nodes (26): aa(), add(), ar(), bf(), buildTicks(), _generate(), _getAnims(), getTickLimit() (+18 more)
+Cohesion: 0.09
+Nodes (30): afterDatasetsUpdate(), buildOrUpdateControllers(), _d(), _destroyDatasetMeta(), determineDataLimits(), Dh(), getDatasetMeta(), _getLabelBounds() (+22 more)
 
 ### Community 97 - "Ii"
 Cohesion: 0.16
-Nodes (28): Cn(), d(), da(), En(), fn(), h(), Ii(), ir() (+20 more)
+Nodes (18): acquireContext(), cancel(), _createDescriptors(), _descriptors(), getContext(), ha(), ir(), ja() (+10 more)
 
-### Community 101 - "BelongsToLandlord.php"
-Cohesion: 0.29
-Nodes (7): bootBelongsToLandlord(), landlord(), BelongsTo, LandlordScope, Builder, Model, Scope
+### Community 100 - "drawLabels"
+Cohesion: 0.17
+Nodes (18): ei(), At(), average(), dataset(), Fa(), getCenterPoint(), getMaximumSize(), getProps() (+10 more)
 
 ### Community 102 - "Ensureactivesubscription & Plans Components"
 Cohesion: 0.06
@@ -592,8 +597,8 @@ Cohesion: 0.14
 Nodes (13): background_color, categories, description, display, icons, lang, name, orientation (+5 more)
 
 ### Community 104 - "Billing"
-Cohesion: 0.20
-Nodes (9): cancelCreateConfirmation, createInvoices, editRoom({{ $index }}), goToReview, openCreateConfirmation, $set(, startBilling, toggleRoomSkip({{ $index }}) (+1 more)
+Cohesion: 0.22
+Nodes (8): clearAllRentals, focusFirstIssue, cancelCreateConfirmation, createInvoices, openCreateConfirmation, $set(, selectAllRentals, toggleRoomSkip({{ $originalIndex }})
 
 ### Community 106 - "Te & Constructor Components"
 Cohesion: 0.17
@@ -608,8 +613,8 @@ Cohesion: 0.40
 Nodes (5): autoload, psr-4, App\\, Database\\Factories\\, Database\\Seeders\\
 
 ### Community 112 - "qt"
-Cohesion: 0.25
-Nodes (5): ChatRoom, BelongsTo, HasMany, BelongsToMany, MorphTo
+Cohesion: 0.04
+Nodes (51): getLabel(), options(), getLabel(), options(), getLabel(), options(), getLabel(), options() (+43 more)
 
 ### Community 113 - "Attendants & Laundromat Components"
 Cohesion: 0.40
@@ -618,6 +623,10 @@ Nodes (5): Laundry Attendants, Laundromat Setting, Stocked Laundry Shelves, Matc
 ### Community 114 - "Clearroomselection & Blade Components"
 Cohesion: 0.50
 Nodes (3): clearRoomSelection, selectAllRooms, toggleRoom({{ $room[
+
+### Community 117 - "Facade & 1E06026Dbe325Cba543B2306Bd7E55D66D31E4C1 Components"
+Cohesion: 0.04
+Nodes (31): getLabel(), options(), getLabel(), options(), getLabel(), options(), InvoiceResource, CreateInvoice (+23 more)
 
 ### Community 118 - "Service & Brand Components"
 Cohesion: 0.50
@@ -628,10 +637,10 @@ Cohesion: 0.50
 Nodes (4): Commercial Laundry Equipment, Laundromat Business Photo, Packaged Laundry, Staff Uniforms
 
 ### Community 122 - "Propertypolicy & Propertypolicy Components"
-Cohesion: 0.06
-Nodes (52): Ye(), add(), applyKeyboardCommand(), attachmentEditorDidRequestRemovalOfAttachment(), canBeGrouped(), checkValidity(), constructor(), createCaptionElement() (+44 more)
+Cohesion: 0.05
+Nodes (54): Ye(), add(), applyKeyboardCommand(), attachmentEditorDidRequestRemovalOfAttachment(), canBeGrouped(), checkValidity(), constructor(), createCaptionElement() (+46 more)
 
-### Community 123 - "InvoiceLine"
+### Community 123 - "044e930deee85cfbc1b468dde7bab543.php"
 Cohesion: 0.53
 Nodes (4): Closure, Request, Response, RedirectToSimpleLandlordMode
 
@@ -642,6 +651,10 @@ Nodes (3): autoload-dev, psr-4, Tests\\
 ### Community 129 - "Extra & Laravel Components"
 Cohesion: 0.67
 Nodes (3): extra, laravel, dont-discover
+
+### Community 155 - "Check & Down Components"
+Cohesion: 0.06
+Nodes (18): getLabel(), options(), EnsureActiveSubscription, Closure, Request, Response, InvoicePolicy, LandlordOwnedPolicy (+10 more)
 
 ### Community 226 - "Blade Components"
 Cohesion: 0.20
@@ -659,9 +672,21 @@ Nodes (8): graphify reference: extra exports and benchmark, Step 6b - Wiki (only
 Cohesion: 0.40
 Nodes (4): backToPick, pickRoom({{ $room->id }}), reset_form, submit
 
+### Community 336 - "845b5f99e072d0b4ed4511d86750c1f1.php"
+Cohesion: 0.20
+Nodes (3): Form, Table, SubscriptionPaymentResource
+
 ### Community 340 - "5C2896C0A827646E925E10376Bda0304 Components"
 Cohesion: 0.25
 Nodes (8): Build Steps, Deployment, Environment, PDF Rendering, Queue, Scheduler, Server Requirements, Storage
+
+### Community 341 - "884d3416ba71745f64da4c2f0e691b0f.blade.php"
+Cohesion: 0.18
+Nodes (10): cancelCreateConfirmation, createInvoices, editRoom({{ $index }}), goToReview, openCreateConfirmation, $set(, startBilling, toggleRoomSkip({{ $index }}) (+2 more)
+
+### Community 443 - "UtilityWaiverResource"
+Cohesion: 0.22
+Nodes (3): Form, Table, UtilityWaiverResource
 
 ### Community 464 - "graphify reference: query, path, explain"
 Cohesion: 0.33
@@ -695,49 +720,41 @@ Nodes (3): For git commit hook, For native CLAUDE.md integration, graphify refer
 Cohesion: 0.50
 Nodes (3): For --cluster-only, For --update (incremental re-extraction), graphify reference: incremental update and cluster-only
 
-### Community 485 - "W"
-Cohesion: 0.22
-Nodes (3): Get, Table, UtilityWaiverResource
-
 ### Community 499 - "WaiversRelationManager.php"
-Cohesion: 0.38
-Nodes (3): MessagesRelationManager, Form, Table
-
-### Community 520 - "St"
-Cohesion: 0.11
-Nodes (27): ei(), At(), average(), dataset(), Fa(), getBasePosition(), getBaseValue(), getCenterPoint() (+19 more)
+Cohesion: 0.04
+Nodes (34): InvoiceLinesRelationManager, Form, Table, PaymentsRelationManager, Form, Table, Form, Table (+26 more)
 
 ### Community 524 - "removeAttribute"
 Cohesion: 0.09
-Nodes (34): addAttribute(), canDecreaseNestingLevel(), canIncreaseNestingLevel(), compositionDidLoadSnapshot(), compositionDidRequestChangingSelectionToLocationRange(), copyWithAdditionalAttributes(), copyWithAttributes(), copyWithoutAttribute() (+26 more)
+Nodes (34): addAttribute(), applyBlockAttribute(), canDecreaseNestingLevel(), canIncreaseNestingLevel(), compositionDidChangeDocument(), compositionDidLoadSnapshot(), copyWithAdditionalAttributes(), copyWithAttributes() (+26 more)
 
 ### Community 527 - "SubscriptionPlanResource"
 Cohesion: 0.18
 Nodes (3): Form, Table, SubscriptionPlanResource
 
 ### Community 532 - "SetLocale.php"
-Cohesion: 0.43
+Cohesion: 0.36
 Nodes (4): Closure, Request, Response, SetLocale
 
 ## Knowledge Gaps
-- **277 isolated node(s):** `$schema`, `name`, `type`, `description`, `keywords` (+272 more)
+- **279 isolated node(s):** `$schema`, `name`, `type`, `description`, `keywords` (+274 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **64 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **66 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `User` connect `Actiongroup & Hasinvoicedocumentactions Components` to `Addattribute & Candecreasenestinglevel Components`, `Syncunitoccupancy & Billingtype Components`, `Et & Us Components`, `Billing & Billing Components`, `Chartoptionscopes & Br Components`, `yn`, `Ah & Applystack Components`, `Paymentmethod & Getlabel Components`, `Editunit & Getheaderactions Components`, `Firstmonthbillingmode & Getcolor Components`, `Buildsinvoiceform & Chargelabel Components`, `Gt & Dl Components`, `Arrowleft & Arrowright Components`?**
-  _High betweenness centrality (0.020) - this node is a cross-community bridge._
-- **Why does `T()` connect `Sg & At Components` to `Chart & Aa Components`, `Select & G Components`, `Generaterentinvoices & Mount Components`, `Attachfiles & Backspace Components`, `App & Echo Components`, `Ja & After Components`, `Autosave & Aa Components`, `Ji & Addelements Components`, `Ye & Add Components`, `Bi & Bn Components`, `Attachmentmanagerdidrequestremovalofattachment & Breaksonreturn Components`, `Ss & Acquirecontext Components`, `Fo & Localweekday Components`, `Cf & Clone Components`, `A & Aa Components`, `Support & Cn Components`, `Generaterentinvoices & Handle Components`, `Issynced & Ce Components`, `Ks & Ac Components`, `Planbillingmodel & Getlabel Components`, `A & Afterautoskip Components`, `Ae & At Components`, `Rs & Ge Components`, `Ii`?**
-  _High betweenness centrality (0.016) - this node is a cross-community bridge._
-- **Why does `F()` connect `Sg & At Components` to `Editor & Actions Components`, `Ss & Acquirecontext Components`, `Generaterentinvoices & Mount Components`, `Rs & Ge Components`, `App & Echo Components`, `Support & Cn Components`, `Handleevent & Picker Components`, `Autosave & Aa Components`, `Createlandlord & Aftercreate Components`?**
+- **Why does `User` connect `Actiongroup & Hasinvoicedocumentactions Components` to `r`, `Addattribute & Candecreasenestinglevel Components`, `Chart & Eo Components`, `Attachfiles & Backspace Components`, `Check & Down Components`, `Handleevent & Picker Components`, `qt`, `Belongsto & Hasone Components`, `Facade & 1E06026Dbe325Cba543B2306Bd7E55D66D31E4C1 Components`, `Paymentmethod & Getlabel Components`, `Editunit & Getheaderactions Components`, `Firstmonthbillingmode & Getcolor Components`, `Gt & Dl Components`, `Arrowleft & Arrowright Components`?**
   _High betweenness centrality (0.015) - this node is a cross-community bridge._
-- **Are the 27 inferred relationships involving `User` (e.g. with `.form()` and `.handleRecordCreation()`) actually correct?**
-  _`User` has 27 INFERRED edges - model-reasoned connections that need verification._
+- **Why does `T()` connect `A & Afterautoskip Components` to `Chart & Abutsend Components`, `Chart & Aa Components`, `Editor & Zt Components`, `Select & G Components`, `Sg & At Components`, `App & Echo Components`, `Ja & After Components`, `Autosave & Aa Components`, `Ji & Addelements Components`, `Bi & Bn Components`, `Ss & Acquirecontext Components`, `Cf & Clone Components`, `A & Aa Components`, `Jt & Os Components`, `Support & Cn Components`, `Createlandlord & Aftercreate Components`, `Issynced & Ce Components`, `Tt & Xg Components`, `Planbillingmodel & Getlabel Components`, `Sa & Ii Components`, `Rs & Ge Components`, `Invoiceexcelexport & Invoiceexcelexport Components`, `UserFactory`, `Ii`?**
+  _High betweenness centrality (0.014) - this node is a cross-community bridge._
+- **Why does `Rental` connect `Attachfiles & Backspace Components` to `Handleevent & Picker Components`, `Actiongroup & Hasinvoicedocumentactions Components`, `Fl & Fromobject Components`, `Editunit & Getheaderactions Components`, `Arrowleft & Arrowright Components`, `Ms & Vs Components`, `Po & Bindevents Components`, `Chart & Eo Components`, `Belongsto & Hasone Components`, `UtilityWaiverResource`, `Firstmonthbillingmode & Getcolor Components`, `Box & Canbeconsolidatedwith Components`, `Addattribute & Candecreasenestinglevel Components`, `r`, `date-time-picker.js`, `qt`, `WaiversRelationManager.php`, `Facade & 1E06026Dbe325Cba543B2306Bd7E55D66D31E4C1 Components`, `035ae69d6f15499d2e3f68286da02306.php`?**
+  _High betweenness centrality (0.012) - this node is a cross-community bridge._
+- **Are the 28 inferred relationships involving `User` (e.g. with `.form()` and `.handleRecordCreation()`) actually correct?**
+  _`User` has 28 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 37 inferred relationships involving `Rental` (e.g. with `.handle()` and `tenantLabel()`) actually correct?**
+  _`Rental` has 37 INFERRED edges - model-reasoned connections that need verification._
 - **Are the 39 inferred relationships involving `x()` (e.g. with `_()` and `v()`) actually correct?**
   _`x()` has 39 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 33 inferred relationships involving `Rental` (e.g. with `.handle()` and `tenantLabel()`) actually correct?**
-  _`Rental` has 33 INFERRED edges - model-reasoned connections that need verification._
-- **Are the 9 inferred relationships involving `_update()` (e.g. with `Hr()` and `Ga()`) actually correct?**
-  _`_update()` has 9 INFERRED edges - model-reasoned connections that need verification._
+- **Are the 41 inferred relationships involving `Invoice` (e.g. with `.handle()` and `.handle()`) actually correct?**
+  _`Invoice` has 41 INFERRED edges - model-reasoned connections that need verification._

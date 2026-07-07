@@ -24,10 +24,12 @@ class PropertyUtility extends Model
     protected $fillable = [
         'property_id',
         'landlord_id',
+        'charge_definition_id',
         'name',
         'unit_of_measure',
         'billing_type',
         'rate',
+        'currency',
         'provider',
         'account_ref',
         'is_active',
@@ -50,6 +52,16 @@ class PropertyUtility extends Model
             ->logOnlyDirty();
     }
 
+    protected static function booted(): void
+    {
+        static::creating(function (PropertyUtility $utility) {
+            if (empty($utility->currency)) {
+                $propSetting = PropertySetting::where('property_id', $utility->property_id)->first();
+                $utility->currency = $propSetting ? ($propSetting->currency ?: 'USD') : 'USD';
+            }
+        });
+    }
+
     public function resolveLandlordId(): ?int
     {
         return Property::withoutGlobalScopes()->whereKey($this->property_id)->value('landlord_id');
@@ -68,6 +80,16 @@ class PropertyUtility extends Model
     public function waivers(): HasMany
     {
         return $this->hasMany(UtilityWaiver::class);
+    }
+
+    public function chargeRules(): HasMany
+    {
+        return $this->hasMany(ChargeRule::class, 'property_utility_id');
+    }
+
+    public function chargeDefinition(): BelongsTo
+    {
+        return $this->belongsTo(ChargeDefinition::class);
     }
 
     public function requiresReading(): bool

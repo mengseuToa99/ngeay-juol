@@ -26,7 +26,15 @@ class PaymentsRelationManager extends RelationManager
     {
         return $form->schema([
             Forms\Components\Hidden::make('recorded_by_id')->default(fn () => auth()->id()),
-            Forms\Components\TextInput::make('amount')->numeric()->prefix(fn () => Money::activeSymbol())->required(),
+            Forms\Components\TextInput::make('amount')->numeric()->required(),
+            Forms\Components\Select::make('currency')
+                ->label(__('Payment currency'))
+                ->options([
+                    'USD' => 'USD',
+                    'KHR' => 'KHR',
+                ])
+                ->default(fn ($livewire) => Money::forRecord($livewire->getOwnerRecord()))
+                ->required(),
             Forms\Components\DateTimePicker::make('paid_at')->default(now())->required(),
             Forms\Components\Select::make('method')->options(PaymentMethod::class)->default(PaymentMethod::Cash)->required(),
             Forms\Components\TextInput::make('transaction_ref'),

@@ -14,7 +14,15 @@
     use App\Support\BrandLogo;
     use App\Support\Money;
 
-    $money = fn ($v) => Money::formatForRecord($v, $invoice);
+    $formatPdfMoney = function ($amount, $currency) {
+        $currency = \App\Support\Money::normalize($currency);
+        $decimals = $currency === 'KHR' ? 0 : 2;
+        return $currency === 'KHR'
+            ? number_format((float) $amount, $decimals) . ' KHR'
+            : '$' . number_format((float) $amount, $decimals);
+    };
+
+    $money = fn ($v) => $formatPdfMoney($v, $invoice->property?->settings?->currency ?? 'USD');
     // ASCII separator/placeholder: the bundled Khmer font has no en/em dash glyph.
     $date = fn ($d) => Invoice::displayDate($d, 'd M Y', '-');
     $period = $invoice->billingPeriodLabel('d M Y', ' - ', '-');
@@ -32,9 +40,10 @@
     $roomNumber = $invoice->rental?->unit?->room_number;
 
     $lines = $invoice->lines;
+    $visibleLines = $lines->filter(fn ($line) => $line->shouldAppearOnTenantInvoice());
     $payments = $invoice->payments;
 
-    $subtotal = $lines->sum(fn ($l) => (float) $l->amount);
+    $subtotal = $visibleLines->sum(fn ($l) => (float) $l->amount);
     $status = $invoice->payment_status?->getLabel();
     $owing = (float) $invoice->balance > 0.005;
 
@@ -167,6 +176,7 @@
             .waived-tag { font-style: italic; color: #94a3b8; font-size: 9px; }
             .usage { color: #64748b; font-size: 9px; margin-top: 3px; line-height: 1.35; }
 
+            .totals-tbl { width: 100%; }
             .totals-tbl td { padding: 5px 10px; font-size: 12px; }
             .totals-tbl td.k { color: #64748b; }
             .totals-tbl td.v { text-align: right; font-weight: 600; color: #0f172a; }
@@ -257,18 +267,33 @@
         <div class="rule"></div>
 
         <table class="items">
-            @foreach ($lines as $line)
+            @foreach ($visibleLines as $line)
                 <tr>
                     <td class="desc">
                         {{ $line->getTranslatedDescription() }}
-                        @if ($line->is_waived)
+                        @if ($line->resolvedChargeState() === 'custom')
+                            <span class="line-type">({{ __('Adjusted') }})</span>
+                        @elseif ($line->resolvedChargeState() === 'free')
+                            <span class="waived">({{ __('Free') }})</span>
+                        @elseif ($line->resolvedChargeState() === 'waived')
                             <span class="waived">({{ __('Waived') }})</span>
                         @endif
                         @if ((float) $line->quantity != 1.0)
-                            <div class="qty">{{ $qty($line->quantity) }} × {{ $money($line->unit_price) }}</div>
+                            <div class="qty">{{ $qty($line->quantity) }} × {{ $formatPdfMoney($line->unit_price, $line->currency) }}</div>
                         @endif
                     </td>
-                    <td class="amt">{{ $line->is_waived ? $money(0) : $money($line->amount) }}</td>
+                    <td class="amt">
+                        @if ($line->resolvedChargeState() === 'free')
+                            {{ __('Free') }}
+                        @elseif ($line->resolvedChargeState() === 'waived')
+                            {{ __('Waived') }}
+                            @if ($line->resolvedChargeStateReason())
+                                <div class="waived-tag">{{ $line->resolvedChargeStateReason() }}</div>
+                            @endif
+                        @else
+                            {{ $formatPdfMoney($line->amount, $line->currency) }}
+                        @endif
+                    </td>
                 </tr>
             @endforeach
         </table>
@@ -276,22 +301,69 @@
         <div class="rule"></div>
 
         <table class="totals">
-            <tr>
-                <td>{{ __('Subtotal') }}</td>
-                <td class="amt">{{ $money($subtotal) }}</td>
-            </tr>
-            <tr class="grand">
-                <td>{{ __('Total due') }}</td>
-                <td class="amt">{{ $money($invoice->amount_due) }}</td>
-            </tr>
-            <tr>
-                <td>{{ __('Paid') }}</td>
-                <td class="amt">{{ $money($invoice->amount_paid) }}</td>
-            </tr>
-            <tr>
-                <td class="bold">{{ __('Balance') }}</td>
-                <td class="amt bold">{{ $money($invoice->balance) }}</td>
-            </tr>
+            @if ($invoice->usd_khr_rate > 0)
+                <tr>
+                    <td>{{ __('USD charges') }}</td>
+                    <td class="amt">{{ $formatPdfMoney($invoice->native_usd_total, 'USD') }}</td>
+                </tr>
+                <tr>
+                    <td>{{ __('KHR charges') }}</td>
+                    <td class="amt">{{ $formatPdfMoney($invoice->native_khr_total, 'KHR') }}</td>
+                </tr>
+                @php
+                    $reportingCurrency = Money::normalize($invoice->property?->settings?->currency ?? 'USD');
+                    $primaryTotal = $reportingCurrency === 'KHR' ? $invoice->total_khr : $invoice->total_usd;
+                    $primaryCurrency = $reportingCurrency;
+                    $equivTotal = $reportingCurrency === 'KHR' ? $invoice->total_usd : $invoice->total_khr;
+                    $equivCurrency = $reportingCurrency === 'KHR' ? 'USD' : 'KHR';
+                @endphp
+                <tr class="grand">
+                    <td>{{ __('Total due') }}</td>
+                    <td class="amt">{{ $formatPdfMoney($primaryTotal, $primaryCurrency) }}</td>
+                </tr>
+                <tr>
+                    <td>{{ __('Equivalent') }}</td>
+                    <td class="amt">{{ $formatPdfMoney($equivTotal, $equivCurrency) }}</td>
+                </tr>
+                <tr>
+                    <td>{{ __('Exchange rate') }}</td>
+                    <td class="amt">1 USD = {{ number_format($invoice->usd_khr_rate, 0) }} KHR</td>
+                </tr>
+                <tr>
+                    <td>{{ __('Paid') }}</td>
+                    <td class="amt">
+                        {{ $formatPdfMoney($invoice->paid_usd, 'USD') }} / {{ $formatPdfMoney($invoice->paid_khr, 'KHR') }}
+                    </td>
+                </tr>
+                <tr class="bold">
+                    <td>{{ __('Balance') }}</td>
+                    <td class="amt">
+                        {{ $formatPdfMoney($invoice->balance_usd, 'USD') }} / {{ $formatPdfMoney($invoice->balance_khr, 'KHR') }}
+                    </td>
+                </tr>
+            @else
+                <tr>
+                    <td>{{ __('Subtotal') }}</td>
+                    <td class="amt">{{ $formatPdfMoney($subtotal, $invoice->property?->settings?->currency ?? 'USD') }}</td>
+                </tr>
+                <tr class="grand">
+                    <td>{{ __('Total due') }}</td>
+                    <td class="amt">{{ $formatPdfMoney($invoice->amount_due, $invoice->property?->settings?->currency ?? 'USD') }}</td>
+                </tr>
+                <tr>
+                    <td>{{ __('Paid') }}</td>
+                    <td class="amt">{{ $formatPdfMoney($invoice->amount_paid, $invoice->property?->settings?->currency ?? 'USD') }}</td>
+                </tr>
+                <tr>
+                    <td class="bold">{{ __('Balance') }}</td>
+                    <td class="amt bold">{{ $formatPdfMoney($invoice->balance, $invoice->property?->settings?->currency ?? 'USD') }}</td>
+                </tr>
+                <tr>
+                    <td colspan="2" class="muted right" style="font-size: 8px; padding-top: 3px;">
+                        {{ __('Exchange-rate snapshot unavailable') }}
+                    </td>
+                </tr>
+            @endif
         </table>
 
         @if ($payments->isNotEmpty())
@@ -307,7 +379,7 @@
                                 · {{ $payment->receipt_number }}
                             @endif
                         </td>
-                        <td class="amt">{{ $money($payment->amount) }}</td>
+                        <td class="amt">{{ $formatPdfMoney($payment->amount, $payment->currency) }}</td>
                     </tr>
                 @endforeach
             </table>
@@ -338,7 +410,7 @@
                                 <div class="biz">{{ $business }}</div>
                                 @if ($address)
                                     <div class="biz-addr">{{ $address }}</div>
-                                @endif
+                                </endif>
                             </td>
                         </tr>
                     </table>
@@ -397,16 +469,20 @@
                 </tr>
             </thead>
             <tbody>
-                @forelse ($lines as $line)
+                @forelse ($visibleLines as $line)
                     @php $usage = $line->utilityUsage; @endphp
-                    <tr class="{{ $line->is_waived ? 'waived' : '' }}">
+                    <tr class="{{ $line->resolvedChargeState() === 'waived' ? 'waived' : '' }}">
                         <td>
                             <div class="desc">{{ $line->getTranslatedDescription() }}</div>
                             @if ($line->line_type)
                                 <div class="line-type">{{ optional($line->line_type)->getLabel() }}</div>
                             @endif
-                            @if ($line->is_waived)
+                            @if ($line->resolvedChargeState() === 'free')
+                                <span class="waived-tag">({{ __('Free') }})</span>
+                            @elseif ($line->resolvedChargeState() === 'waived')
                                 <span class="waived-tag">({{ __('Waived') }})</span>
+                            @elseif ($line->resolvedChargeState() === 'custom')
+                                <span class="waived-tag">({{ __('Adjusted') }})</span>
                             @endif
                             {{-- Only show meter details when both readings exist, matching the on-screen modal (no fabricated "0.0 → 0.0"). --}}
                             @if ($usage && $usage->propertyUtility && $usage->old_reading !== null && $usage->new_reading !== null)
@@ -415,14 +491,24 @@
                                     {{-- The Khmer PDF font lacks U+2192; render the arrow with DejaVu Sans (bundled with dompdf) so it isn't a tofu box. --}}
                                     {{ __('Meter') }}: {{ number_format((float) $usage->old_reading, 1) }} <span style="font-family: 'DejaVu Sans';">&#8594;</span> {{ number_format((float) $usage->new_reading, 1) }}
                                     @if ($usage->amount_used)
-                                        | {{ __('Consumed') }}: {{ $qty($usage->amount_used) }} {{ $pu->unit_of_measure ?? __('units') }}
+                                        | {{ __('Consumed') }}: {{ $qty($usage->amount_used) }} {{ $pu->unit_of_measure ?? __('units') }}@if ($line->unit_price) × {{ $formatPdfMoney($line->unit_price, $line->currency) }}@endif
                                     @endif
                                 </div>
                             @endif
                         </td>
                         <td class="num"><div>{{ $qty($line->quantity) }}</div></td>
-                        <td class="num"><div>{{ $money($line->unit_price) }}</div></td>
-                        <td class="num"><div class="amt">{{ $line->is_waived ? $money(0) : $money($line->amount) }}</div></td>
+                        <td class="num"><div>{{ $formatPdfMoney($line->unit_price, $line->currency) }}</div></td>
+                        <td class="num">
+                            <div class="amt">
+                                @if ($line->resolvedChargeState() === 'free')
+                                    {{ __('Free') }}
+                                @elseif ($line->resolvedChargeState() === 'waived')
+                                    {{ __('Waived') }}
+                                @else
+                                    {{ $formatPdfMoney($line->amount, $line->currency) }}
+                                @endif
+                            </div>
+                        </td>
                     </tr>
                 @empty
                     <tr>
@@ -436,24 +522,80 @@
         <table style="margin-top: 16px;">
             <tr>
                 <td style="vertical-align: top;">&nbsp;</td>
-                <td style="width: 250px; vertical-align: top;">
+                <td style="width: 280px; vertical-align: top;">
                     <table class="totals-tbl">
-                        <tr>
-                            <td class="k">{{ __('Subtotal') }}</td>
-                            <td class="v">{{ $money($subtotal) }}</td>
-                        </tr>
-                        <tr class="grand">
-                            <td class="k">{{ __('Total due') }}</td>
-                            <td class="v">{{ $money($invoice->amount_due) }}</td>
-                        </tr>
-                        <tr>
-                            <td class="k">{{ __('Paid') }}</td>
-                            <td class="v">{{ $money($invoice->amount_paid) }}</td>
-                        </tr>
-                        <tr class="balance {{ $owing ? 'owing' : '' }}">
-                            <td class="k">{{ __('Balance') }}</td>
-                            <td class="v">{{ $money($invoice->balance) }}</td>
-                        </tr>
+                        @if ($invoice->usd_khr_rate > 0)
+                            <tr>
+                                <td class="k">{{ __('USD charges') }}</td>
+                                <td class="v">{{ $formatPdfMoney($invoice->native_usd_total, 'USD') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="k">{{ __('KHR charges') }}</td>
+                                <td class="v">{{ $formatPdfMoney($invoice->native_khr_total, 'KHR') }}</td>
+                            </tr>
+                            @php
+                                $reportingCurrency = Money::normalize($invoice->property?->settings?->currency ?? 'USD');
+                                $primaryTotal = $reportingCurrency === 'KHR' ? $invoice->total_khr : $invoice->total_usd;
+                                $primaryCurrency = $reportingCurrency;
+                                $equivTotal = $reportingCurrency === 'KHR' ? $invoice->total_usd : $invoice->total_khr;
+                                $equivCurrency = $reportingCurrency === 'KHR' ? 'USD' : 'KHR';
+                            @endphp
+                            <tr class="grand">
+                                <td class="k">{{ __('Total') }}</td>
+                                <td class="v">{{ $formatPdfMoney($primaryTotal, $primaryCurrency) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="k">{{ __('Equivalent') }}</td>
+                                <td class="v">{{ $formatPdfMoney($equivTotal, $equivCurrency) }}</td>
+                            </tr>
+                            <tr>
+                                <td class="k">{{ __('Exchange rate') }}</td>
+                                <td class="v">1 USD = {{ number_format($invoice->usd_khr_rate, 0) }} KHR</td>
+                            </tr>
+                            @if ($invoice->exchange_rate_source)
+                                <tr>
+                                    <td class="k" style="font-size: 8px;">{{ __('Rate source') }}</td>
+                                    <td class="v" style="font-size: 8px; font-weight: normal; color: #64748b;">
+                                        {{ __($invoice->exchange_rate_source) }}@if ($invoice->exchange_rate_date) ({{ $date($invoice->exchange_rate_date) }})@endif
+                                    </td>
+                                </tr>
+                            @endif
+                            <tr style="border-top: 1px solid #e2e8f0;">
+                                <td class="k">{{ __('Paid') }}</td>
+                                <td class="v">
+                                    {{ $formatPdfMoney($invoice->paid_usd, 'USD') }} / {{ $formatPdfMoney($invoice->paid_khr, 'KHR') }}
+                                </td>
+                            </tr>
+                            <tr class="balance {{ $owing ? 'owing' : '' }}">
+                                <td class="k">{{ __('Balance') }}</td>
+                                <td class="v">
+                                    {{ $formatPdfMoney($invoice->balance_usd, 'USD') }} / {{ $formatPdfMoney($invoice->balance_khr, 'KHR') }}
+                                </td>
+                            </tr>
+                        @else
+                            {{-- Legacy/Single Currency fallback --}}
+                            <tr>
+                                <td class="k">{{ __('Subtotal') }}</td>
+                                <td class="v">{{ $formatPdfMoney($subtotal, $invoice->property?->settings?->currency ?? 'USD') }}</td>
+                            </tr>
+                            <tr class="grand">
+                                <td class="k">{{ __('Total due') }}</td>
+                                <td class="v">{{ $formatPdfMoney($invoice->amount_due, $invoice->property?->settings?->currency ?? 'USD') }}</td>
+                            </tr>
+                            <tr>
+                                <td class="k">{{ __('Paid') }}</td>
+                                <td class="v">{{ $formatPdfMoney($invoice->amount_paid, $invoice->property?->settings?->currency ?? 'USD') }}</td>
+                            </tr>
+                            <tr class="balance {{ $owing ? 'owing' : '' }}">
+                                <td class="k">{{ __('Balance') }}</td>
+                                <td class="v">{{ $formatPdfMoney($invoice->balance, $invoice->property?->settings?->currency ?? 'USD') }}</td>
+                            </tr>
+                            <tr>
+                                <td colspan="2" class="muted right" style="font-size: 8px; padding-top: 4px;">
+                                    {{ __('Exchange-rate snapshot unavailable') }}
+                                </td>
+                            </tr>
+                        @endif
                     </table>
                 </td>
             </tr>
@@ -476,7 +618,7 @@
                             <td>{{ $date($payment->paid_at) }}</td>
                             <td>{{ optional($payment->method)->getLabel() ?? '—' }}</td>
                             <td>{{ $payment->receipt_number ?? $payment->transaction_ref ?? '—' }}</td>
-                            <td class="num">{{ $money($payment->amount) }}</td>
+                            <td class="num">{{ $formatPdfMoney($payment->amount, $payment->currency) }}</td>
                         </tr>
                     @endforeach
                 </tbody>

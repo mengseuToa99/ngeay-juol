@@ -7,6 +7,7 @@ use App\Enums\RentalStatus;
 use App\Enums\UnitStatus;
 use App\Filament\Pages\MonthlyBilling;
 use App\Models\Invoice;
+use App\Models\InvoiceLine;
 use App\Models\Property;
 use App\Models\PropertySetting;
 use App\Models\PropertyUtility;
@@ -196,6 +197,27 @@ class MonthlyBillingManualAndDesktopTest extends TestCase
 
         // Next invoice date remains 2026-07-01
         $this->assertSame('2026-07-01', Carbon::parse($secondRental->refresh()->next_invoice_date)->toDateString());
+    }
+
+    public function test_invoice_run_not_applicable_override_skips_utility_line_and_keeps_rent_line(): void
+    {
+        $landlord = $this->createLandlord();
+        $property = $this->createPropertyWithDueRooms($landlord, 'Prop', 1);
+
+        $this->actingAs($landlord);
+
+        Livewire::test(MonthlyBilling::class)
+            ->call('chooseProperty', $property->id)
+            ->call('startBilling')
+            ->set('rooms.0.utilities.0.state_override', 'not_applicable')
+            ->set('rooms.0.utilities.0.override_reason', 'No motorbike')
+            ->call('goToReview')
+            ->call('openCreateConfirmation')
+            ->call('createInvoices');
+
+        $this->assertSame(1, Invoice::count());
+        $this->assertSame(1, InvoiceLine::count());
+        $this->assertSame(0, UtilityUsage::count());
     }
 
     public function test_desktop_grid_view_entry_and_creation(): void

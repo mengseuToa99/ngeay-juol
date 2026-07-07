@@ -90,7 +90,9 @@ class SimpleAddTenant extends Component
             'occupant_name' => trim($this->occupantName),
             'occupant_phone' => trim($this->occupantPhone) ?: null,
             'monthly_rent' => (float) $this->monthlyRent,
+            'monthly_rent_currency' => $unit->rent_currency ?: 'USD',
             'security_deposit' => 0,
+            'security_deposit_currency' => $unit->rent_currency ?: 'USD',
             'status' => RentalStatus::Active,
             'start_date' => $this->startDate,
         ]);

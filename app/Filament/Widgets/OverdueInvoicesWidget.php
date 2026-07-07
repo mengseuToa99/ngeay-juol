@@ -49,7 +49,7 @@ class OverdueInvoicesWidget extends BaseWidget
                     ->placeholder('—'),
                 Tables\Columns\TextColumn::make('amount_due')
                     ->label(__('Amount Due'))
-                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatForRecord($state, $record))
+                    ->formatStateUsing(fn ($state, Invoice $record) => Money::formatInvoiceAmount($record, 'due'))
                     ->alignEnd(),
                 Tables\Columns\TextColumn::make('due_date')
                     ->label(__('Due Date'))

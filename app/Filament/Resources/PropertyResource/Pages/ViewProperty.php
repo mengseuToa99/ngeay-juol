@@ -75,9 +75,28 @@ class ViewProperty extends ViewRecord
                     TextEntry::make('utilities')->label(__('Active utilities'))
                         ->state(fn ($record) => $record->propertyUtilities()->where('is_active', true)->count()),
                     TextEntry::make('outstanding')->label(__('Outstanding'))
-                        ->state(fn ($record) => Money::formatForRecord($record->invoices()
-                            ->whereIn('payment_status', [InvoiceStatus::Pending->value, InvoiceStatus::Partial->value, InvoiceStatus::Overdue->value])
-                            ->selectRaw('COALESCE(SUM(amount_due - amount_paid),0) as b')->value('b'), $record))
+                        ->state(function ($record) {
+                            $invoices = $record->invoices()
+                                ->whereIn('payment_status', [
+                                    InvoiceStatus::Pending->value,
+                                    InvoiceStatus::Partial->value,
+                                    InvoiceStatus::Overdue->value
+                                ])
+                                ->get();
+
+                            $usdTotal = 0.0;
+                            $khrTotal = 0.0;
+
+                            foreach ($invoices as $invoice) {
+                                $usdTotal += $invoice->balance_usd;
+                                $khrTotal += $invoice->balance_khr;
+                            }
+
+                            $usdFormatted = Money::format($usdTotal, 'USD');
+                            $khrFormatted = Money::format($khrTotal, 'KHR');
+
+                            return "{$usdFormatted} / {$khrFormatted}";
+                        })
                         ->color('warning'),
                 ])->columns(4),
         ]);

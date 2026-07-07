@@ -114,7 +114,7 @@ class PropertySettings extends Page implements HasForms
                             ->required()
                             ->live()
                             ->selectablePlaceholder(false)
-                            ->helperText(__('This controls the money symbol for this property. It does not convert existing prices.')),
+                            ->helperText(__('Used as the default when creating rooms, utilities, and fees. Existing prices keep their own currency.')),
 
                         Forms\Components\TextInput::make('invoice_prefix')
                             ->label(__('Invoice prefix'))
@@ -127,14 +127,10 @@ class PropertySettings extends Page implements HasForms
                             ->step('0.0001')
                             ->prefix(__('1 USD ='))
                             ->suffix('KHR')
-                            ->visible(fn (Get $get): bool => $get('currency') === 'KHR')
-                            ->dehydrated(fn (Get $get): bool => $get('currency') === 'KHR')
                             ->helperText(__('Fetch from NBC or enter the rate you want to use for this property.')),
 
                         Forms\Components\DatePicker::make('exchange_rate_date')
-                            ->label(__('Exchange rate date'))
-                            ->visible(fn (Get $get): bool => $get('currency') === 'KHR')
-                            ->dehydrated(fn (Get $get): bool => $get('currency') === 'KHR'),
+                            ->label(__('Exchange rate date')),
 
                         Forms\Components\Hidden::make('exchange_rate_source'),
                         Forms\Components\Hidden::make('exchange_rate_fetched_at'),
@@ -153,8 +149,7 @@ class PropertySettings extends Page implements HasForms
                                     'rate' => number_format((float) $rate, 2),
                                     'date' => Carbon::parse($date)->toDateString(),
                                 ]);
-                            })
-                            ->visible(fn (Get $get): bool => $get('currency') === 'KHR'),
+                            }),
 
                         Forms\Components\Actions::make([
                             Forms\Components\Actions\Action::make('fetchUsdKhrExchangeRate')
@@ -163,7 +158,6 @@ class PropertySettings extends Page implements HasForms
                                 ->color('gray')
                                 ->action(fn () => $this->fetchUsdKhrExchangeRate()),
                         ])
-                            ->visible(fn (Get $get): bool => $get('currency') === 'KHR')
                             ->columnSpanFull(),
 
                         Forms\Components\TextInput::make('due_day_of_month')
@@ -295,15 +289,6 @@ class PropertySettings extends Page implements HasForms
 
         $state = $this->data ?? [];
 
-        if (($state['currency'] ?? 'USD') !== 'KHR') {
-            Notification::make()
-                ->warning()
-                ->title(__('Select Khmer riel before fetching the exchange rate.'))
-                ->send();
-
-            return;
-        }
-
         try {
             $exchangeRate = app(ExchangeRateService::class)->fetchUsdToKhr();
         } catch (Throwable $exception) {
@@ -317,7 +302,6 @@ class PropertySettings extends Page implements HasForms
         }
 
         $payload = [
-            'currency' => 'KHR',
             'usd_khr_exchange_rate' => number_format((float) $exchangeRate['rate'], 4, '.', ''),
             'exchange_rate_date' => $exchangeRate['date'],
             'exchange_rate_source' => $exchangeRate['source'],
@@ -328,7 +312,6 @@ class PropertySettings extends Page implements HasForms
         $this->setting->refresh();
 
         $this->form->fill(array_replace($state, [
-            'currency' => 'KHR',
             'usd_khr_exchange_rate' => $payload['usd_khr_exchange_rate'],
             'exchange_rate_date' => $payload['exchange_rate_date'],
             'exchange_rate_source' => $payload['exchange_rate_source'],

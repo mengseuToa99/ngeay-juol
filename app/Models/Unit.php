@@ -31,6 +31,7 @@ class Unit extends Model
         'floor_number',
         'room_type',
         'rent_amount',
+        'rent_currency',
         'due_date',
         'status',
         'description',
@@ -118,5 +119,10 @@ class Unit extends Model
     public function invoices(): HasManyThrough
     {
         return $this->hasManyThrough(Invoice::class, Rental::class, 'unit_id', 'rental_id');
+    }
+
+    public function chargeRules(): HasMany
+    {
+        return $this->hasMany(ChargeRule::class, 'scope_id')->where('scope_type', 'unit');
     }
 }

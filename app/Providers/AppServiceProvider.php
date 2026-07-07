@@ -35,7 +35,7 @@ class AppServiceProvider extends ServiceProvider
 {
     public function register(): void
     {
-        //
+        $this->app->bind('db.connector.pgsql', \App\Database\Connectors\RdsPostgresConnector::class);
     }
 
     public function boot(): void

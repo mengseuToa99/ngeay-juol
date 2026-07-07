@@ -14,6 +14,7 @@ use App\Models\PropertyUtility;
 use App\Models\Rental;
 use App\Models\UtilityUsage;
 use App\Services\InvoiceBuilderService;
+use App\Services\ChargeRuleResolver;
 use App\Services\ProratingService;
 use App\Services\SubscriptionService;
 use App\Services\UtilityBillingService;
@@ -391,9 +392,14 @@ class MonthlyBilling extends Page
         if (! $room) {
             return [
                 'utility_summary' => '',
+                'charges_to_bill' => [],
+                'free_or_waived' => [],
+                'not_billed' => [],
                 'rent' => 0.0,
+                'rent_currency' => 'USD',
                 'utilities_total' => 0.0,
                 'estimated_total' => 0.0,
+                'estimated_total_display' => '',
                 'warnings' => [],
                 'warning_count' => 0,
                 'has_missing' => false,
@@ -402,8 +408,12 @@ class MonthlyBilling extends Page
             ];
         }
 
-        $utilitiesTotal = 0.0;
+        $usdOnly = 0.0;
+        $khrOnly = 0.0;
         $summaryParts = [];
+        $chargesToBill = [];
+        $freeOrWaived = [];
+        $notBilled = [];
         $warnings = [];
         $hasMissing = false;
 
@@ -418,14 +428,25 @@ class MonthlyBilling extends Page
 
         foreach ($room['utilities'] as $utilityIndex => $utility) {
             $preview = $this->utilityPreview($index, $utilityIndex);
-            $utilitiesTotal += $preview['charge'];
-            $summaryParts[] = $utility['utility_name'].': '.(
-                ! ($preview['requires_reading'] ?? true)
-                    ? __('Fixed charge')
-                    : ($preview['amount_used'] === null
-                        ? '—'
-                        : $this->formatQuantity($preview['amount_used']))
-            );
+            $utilityCurrency = $utility['currency'] ?? 'USD';
+            $state = (string) ($utility['state_override'] ?? 'normal');
+            $stateLabel = ChargeRuleResolver::stateLabel($state);
+            $scopeLabel = ChargeRuleResolver::scopeLabel((string) ($utility['source_scope_type'] ?? 'property'));
+            if ($utilityCurrency === 'USD') {
+                $usdOnly += $preview['charge'];
+            } else {
+                $khrOnly += $preview['charge'];
+            }
+
+            $summaryParts[] = $utility['utility_name'].': '.$stateLabel.' · '.$scopeLabel;
+
+            if (in_array($state, ['not_applicable', 'skipped_this_cycle'], true)) {
+                $notBilled[] = $utility['utility_name'].' · '.$stateLabel;
+            } elseif (in_array($state, ['free', 'waived'], true)) {
+                $freeOrWaived[] = $utility['utility_name'].' · '.$stateLabel;
+            } else {
+                $chargesToBill[] = $utility['utility_name'].' · '.$stateLabel;
+            }
 
             if ($preview['warning']) {
                 $warnings[] = $preview['warning'];
@@ -437,19 +458,54 @@ class MonthlyBilling extends Page
         }
 
         $rent = (float) ($room['rent'] ?? 0);
+        $rentCurrency = $room['rent_currency'] ?? 'USD';
+        if ($rentCurrency === 'USD') {
+            $usdOnly += $rent;
+        } else {
+            $khrOnly += $rent;
+        }
+
+        $propertySetting = PropertySetting::where('property_id', $this->propertyId)->first();
+        $rate = $propertySetting?->usd_khr_exchange_rate ?: 4000;
 
         return [
             'utility_summary' => $summaryParts !== []
                 ? implode(' · ', $summaryParts)
                 : __('No active utilities'),
+            'charges_to_bill' => $chargesToBill,
+            'free_or_waived' => $freeOrWaived,
+            'not_billed' => $notBilled,
             'rent' => $rent,
-            'utilities_total' => $utilitiesTotal,
-            'estimated_total' => round($rent + $utilitiesTotal, 2),
+            'rent_currency' => $rentCurrency,
+            'utilities_total' => $usdOnly + ($khrOnly / $rate),
+            'estimated_total' => round($usdOnly + ($khrOnly / $rate), 2),
+            'estimated_total_display' => $this->formatMixedTotal($usdOnly, $khrOnly, $rate),
             'warnings' => array_values(array_unique($warnings)),
             'warning_count' => count(array_unique($warnings)),
             'has_missing' => $hasMissing,
-            'is_skipped' => (bool) ($room['skipped'] ?? false),
-            'is_complete' => ! $hasMissing && ! $this->roomHasBlockingLowReadings($index) && ! $this->roomHasInvalidPeriodOrDuplicate($index) && ! (bool) ($room['skipped'] ?? false),
+            'is_skipped' => $room['skipped'] ?? false,
+            'is_complete' => ! $hasMissing && count($warnings) === 0,
+        ];
+    }
+
+    public function formatMixedTotal(float $usd, float $khr, float $rate): string
+    {
+        if ($usd > 0 && $khr > 0) {
+            return Money::format($usd, 'USD') . ' + ' . Money::format($khr, 'KHR');
+        }
+        if ($khr > 0) {
+            return Money::format($khr, 'KHR');
+        }
+        return Money::format($usd, 'USD');
+    }
+
+    public function getExchangeRateInfo(): array
+    {
+        $setting = PropertySetting::where('property_id', $this->propertyId)->first();
+        return [
+            'rate' => $setting?->usd_khr_exchange_rate ?: 4000,
+            'source' => $setting?->exchange_rate_source ?: __('Manual'),
+            'date' => $setting?->exchange_rate_date ? $setting->exchange_rate_date->format('d M Y') : '—',
         ];
     }
 
@@ -467,6 +523,21 @@ class MonthlyBilling extends Page
                 'warning' => null,
                 'missing' => true,
                 'requires_reading' => true,
+            ];
+        }
+
+        $state = (string) ($utility['state_override'] ?? 'normal');
+        if (in_array($state, ['not_applicable', 'skipped_this_cycle'], true)) {
+            return [
+                'old_reading' => null,
+                'new_reading' => null,
+                'amount_used' => null,
+                'charge' => $this->previewCharge($utility, 0.0),
+                'warning' => null,
+                'is_lower_reading' => false,
+                'is_high_usage' => false,
+                'missing' => false,
+                'requires_reading' => false,
             ];
         }
 
@@ -531,6 +602,9 @@ class MonthlyBilling extends Page
         $warnings = [];
 
         foreach (array_keys($room['utilities']) as $utilityIndex) {
+            if (in_array((string) ($room['utilities'][$utilityIndex]['state_override'] ?? 'normal'), ['not_applicable', 'skipped_this_cycle'], true)) {
+                continue;
+            }
             $preview = $this->utilityPreview($index, (int) $utilityIndex);
             if (($preview['requires_reading'] ?? true) && $preview['warning']) {
                 $warnings[] = $preview['warning'];
@@ -551,6 +625,9 @@ class MonthlyBilling extends Page
         }
 
         foreach ($room['utilities'] as $utilityIndex => $utility) {
+            if (in_array((string) ($utility['state_override'] ?? 'normal'), ['not_applicable', 'skipped_this_cycle'], true)) {
+                continue;
+            }
             $preview = $this->utilityPreview($index, $utilityIndex);
             if (($preview['requires_reading'] ?? true) && $preview['is_lower_reading'] && blank($utility['override_reason'] ?? null)) {
                 return true;
@@ -568,6 +645,9 @@ class MonthlyBilling extends Page
         }
 
         foreach ($room['utilities'] as $utilityIndex => $utility) {
+            if (in_array((string) ($utility['state_override'] ?? 'normal'), ['not_applicable', 'skipped_this_cycle'], true)) {
+                continue;
+            }
             if (($utility['requires_reading'] ?? true) && blank($utility['new_reading'] ?? null)) {
                 return true;
             }
@@ -596,6 +676,52 @@ class MonthlyBilling extends Page
     public function skippedRoomCount(): int
     {
         return collect($this->rooms)->filter(fn (array $room) => (bool) ($room['skipped'] ?? false))->count();
+    }
+
+    protected function billingStateCounts(): array
+    {
+        $counts = [
+            'billed' => 0,
+            'free' => 0,
+            'waived' => 0,
+            'not_applicable' => 0,
+            'skipped_this_cycle' => 0,
+            'custom' => 0,
+        ];
+
+        foreach ($this->rooms as $room) {
+            if (($room['skipped'] ?? false) === true) {
+                continue;
+            }
+
+            $rentState = $room['rent_state_override'] ?? 'normal';
+            if ($rentState === 'free' || $rentState === 'waived') {
+                $counts[$rentState]++;
+            } elseif ($rentState === 'not_applicable' || $rentState === 'skipped_this_cycle') {
+                $counts[$rentState]++;
+            } else {
+                $counts['billed']++;
+                if ($rentState === 'custom') {
+                    $counts['custom']++;
+                }
+            }
+
+            foreach ($room['utilities'] ?? [] as $utility) {
+                $state = $utility['state_override'] ?? 'normal';
+                if ($state === 'free' || $state === 'waived') {
+                    $counts[$state]++;
+                } elseif ($state === 'not_applicable' || $state === 'skipped_this_cycle') {
+                    $counts[$state]++;
+                } else {
+                    $counts['billed']++;
+                    if ($state === 'custom') {
+                        $counts['custom']++;
+                    }
+                }
+            }
+        }
+
+        return $counts;
     }
 
     public function roomsWithWarningsCount(): int
@@ -830,10 +956,24 @@ class MonthlyBilling extends Page
                     }
 
                     $usages = [];
+                    $utilityOverrides = [];
 
                     foreach ($room['utilities'] as $utility) {
+                        $state = (string) ($utility['state_override'] ?? 'normal');
+                        if ($state !== 'normal') {
+                            $utilityOverrides[$utility['property_utility_id']] = [
+                                'state' => $state,
+                                'reason' => $utility['override_reason'] ?? null,
+                                'amount' => $utility['override_amount'] ?? null,
+                                'currency' => $utility['override_currency'] ?? null,
+                            ];
+                        }
+
                         $requiresReading = (bool) ($utility['requires_reading'] ?? true);
                         $newReading = $this->parseNumber($utility['new_reading']);
+                        if (in_array($state, ['not_applicable', 'skipped_this_cycle'], true)) {
+                            continue;
+                        }
                         if ($requiresReading && $newReading === null) {
                             continue;
                         }
@@ -870,6 +1010,7 @@ class MonthlyBilling extends Page
                         'include_rent' => true,
                         'is_first_invoice' => (bool) ($room['is_first_invoice'] ?? false),
                         'usages' => $usages,
+                        'utility_overrides' => $utilityOverrides,
                     ];
 
                     if ($dueDate = $this->determineDueDate($rental, $periodStart)) {
@@ -927,9 +1068,27 @@ class MonthlyBilling extends Page
 
         Notification::make()
             ->title(__('Billing complete'))
-            ->body(__(':created invoice(s) created', ['created' => $created]))
+            ->body($this->billingCompleteBody($created))
             ->success()
             ->send();
+    }
+
+    protected function billingCompleteBody(int $created): string
+    {
+        $counts = $this->billingStateCounts();
+        $parts = [
+            __('Created :count invoice(s).', ['count' => $created]),
+            __('Billed :count charge(s).', ['count' => $counts['billed']]),
+            __('Free/Waived :count charge(s).', ['count' => $counts['free'] + $counts['waived']]),
+            __('Not applicable :count charge(s).', ['count' => $counts['not_applicable']]),
+            __('Skipped this cycle :count charge(s).', ['count' => $counts['skipped_this_cycle']]),
+        ];
+
+        if ($counts['custom'] > 0) {
+            $parts[] = __('Custom adjustments :count.', ['count' => $counts['custom']]);
+        }
+
+        return implode(' ', $parts);
     }
 
     public function startAnotherProperty(): void
@@ -1113,17 +1272,38 @@ class MonthlyBilling extends Page
                 ->orderByDesc('id')
                 ->first();
 
+            $resolver = app(\App\Services\ChargeRuleResolver::class);
+            $decision = $resolver->resolve([
+                'property_utility_id' => $utility->id,
+                'rental_id' => $rental->id,
+                'unit_id' => $rental->unit_id,
+                'date' => $periodEnd->toDateString(),
+            ]);
+            $propertyDecision = $resolver->resolve([
+                'property_utility_id' => $utility->id,
+                'property_id' => $this->propertyId,
+                'date' => $periodEnd->toDateString(),
+            ]);
+
             $readings[] = [
                 'property_utility_id' => $utility->id,
                 'utility_name' => $this->utilityLabel($utility->name),
                 'billing_type' => $utility->billing_type->value,
                 'rate' => (float) $utility->rate,
+                'currency' => $utility->currency ?: 'USD',
                 'unit_of_measure' => $utility->unit_of_measure,
                 'requires_reading' => $utility->requiresReading(),
                 'previous_usage' => (float) ($latestUsage?->amount_used ?? 0),
                 'old_reading' => (string) ($latestUsage?->new_reading ?? 0),
                 'new_reading' => null,
-                'override_reason' => null,
+                'override_reason' => $decision['reason'],
+                'state_override' => $decision['effective_state'],
+                'source_scope_type' => $decision['source_scope_type'],
+                'source_scope_label' => ChargeRuleResolver::scopeLabel((string) $decision['source_scope_type']),
+                'property_state_override' => $propertyDecision['effective_state'],
+                'property_scope_label' => ChargeRuleResolver::scopeLabel((string) $propertyDecision['source_scope_type']),
+                'override_amount' => $decision['effective_state'] === 'custom' ? $decision['amount'] : null,
+                'override_currency' => $decision['effective_state'] === 'custom' ? $decision['currency'] : null,
             ];
         }
 
@@ -1136,10 +1316,17 @@ class MonthlyBilling extends Page
             'period_end' => $periodEnd->toDateString(),
             'period_display' => $periodStart->format('d M Y').' — '.$periodEnd->format('d M Y'),
             'rent' => round($rent, 2),
+            'rent_currency' => $rental->monthly_rent_currency ?: 'USD',
             'is_first_invoice' => $isFirstInvoice,
             'skipped' => false,
             'skip_reason' => null,
             'utilities' => $readings,
+
+            // Rent override state
+            'rent_state_override' => 'normal',
+            'rent_override_reason' => null,
+            'rent_override_amount' => null,
+            'rent_override_currency' => null,
         ];
     }
 
@@ -1156,7 +1343,19 @@ class MonthlyBilling extends Page
         ]);
         $usage->setRelation('propertyUtility', $propertyUtility);
 
-        return (float) UtilityBillingService::resolveCharge($usage)['amount'];
+        $manualParams = [];
+        if (isset($utility['state_override']) && $utility['state_override'] !== 'normal') {
+            $manualParams['manual_state'] = $utility['state_override'];
+            $manualParams['manual_reason'] = $utility['override_reason'] ?? null;
+            if (isset($utility['override_amount']) && $utility['override_amount'] !== null) {
+                $manualParams['manual_amount'] = (float) $utility['override_amount'];
+            }
+            if (isset($utility['override_currency'])) {
+                $manualParams['manual_currency'] = $utility['override_currency'];
+            }
+        }
+
+        return (float) UtilityBillingService::resolveCharge($usage, $manualParams)['amount'];
     }
 
     protected function parseNumber(mixed $value): ?float

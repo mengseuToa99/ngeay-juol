@@ -74,6 +74,30 @@ class Money
 
     public static function forRecord(mixed $record): string
     {
+        if ($record instanceof Unit && !empty($record->rent_currency)) {
+            return self::normalize($record->rent_currency);
+        }
+        if ($record instanceof Rental && !empty($record->monthly_rent_currency)) {
+            return self::normalize($record->monthly_rent_currency);
+        }
+        if ($record instanceof PropertyUtility && !empty($record->currency)) {
+            return self::normalize($record->currency);
+        }
+        if ($record instanceof Payment && !empty($record->currency)) {
+            return self::normalize($record->currency);
+        }
+        if ($record instanceof Model) {
+            if (isset($record->currency) && !empty($record->currency)) {
+                return self::normalize($record->currency);
+            }
+            if (isset($record->rent_currency) && !empty($record->rent_currency)) {
+                return self::normalize($record->rent_currency);
+            }
+            if (isset($record->monthly_rent_currency) && !empty($record->monthly_rent_currency)) {
+                return self::normalize($record->monthly_rent_currency);
+            }
+        }
+
         $propertyId = self::propertyIdFor($record);
 
         if ($propertyId) {
@@ -149,5 +173,113 @@ class Money
         }
 
         return null;
+    }
+
+    public static function convert(mixed $amount, string $from, string $to, float $rate, ?int $decimals = null): float
+    {
+        $from = self::normalize($from);
+        $to = self::normalize($to);
+        $amount = (float) $amount;
+
+        if ($from === $to) {
+            return $amount;
+        }
+
+        if ($from === 'USD' && $to === 'KHR') {
+            $decimals ??= 0;
+            return round($amount * $rate, $decimals);
+        }
+
+        if ($from === 'KHR' && $to === 'USD') {
+            $decimals ??= 2;
+            return $rate > 0 ? round($amount / $rate, $decimals) : 0.0;
+        }
+
+        return $amount;
+    }
+
+    public static function computeLineConvertedAmounts(float $amount, string $currency, float $rate): array
+    {
+        $currency = self::normalize($currency);
+        if ($currency === 'USD') {
+            return [
+                'amount_usd' => $amount,
+                'amount_khr' => self::convert($amount, 'USD', 'KHR', $rate),
+            ];
+        } else {
+            return [
+                'amount_usd' => self::convert($amount, 'KHR', 'USD', $rate),
+                'amount_khr' => $amount,
+            ];
+        }
+    }
+
+    public static function sumLineTotals(iterable $lines, string $targetCurrency, float $rate): float
+    {
+        $sum = 0.0;
+        foreach ($lines as $line) {
+            $currency = self::normalize($line->currency ?? 'USD');
+            $amount = (float) ($line->amount ?? 0);
+            $sum += self::convert($amount, $currency, $targetCurrency, $rate);
+        }
+        return $sum;
+    }
+
+    public static function sumPaymentTotals(iterable $payments, string $targetCurrency, float $rate): float
+    {
+        $sum = 0.0;
+        foreach ($payments as $payment) {
+            $currency = self::normalize($payment->currency ?? 'USD');
+            $amount = (float) ($payment->amount ?? 0);
+            $sum += self::convert($amount, $currency, $targetCurrency, $rate);
+        }
+        return $sum;
+    }
+
+    public static function resolveRemainingBalance(float $total, float $paid, string $currency): float
+    {
+        $decimals = self::decimals($currency);
+        return round(max(0.0, $total - $paid), $decimals);
+    }
+
+    /**
+     * Format invoice amounts into a compact multi-currency format if snapshot is available,
+     * or fallback to single-currency formatting for legacy invoices.
+     */
+    public static function formatInvoiceAmount(Invoice $invoice, string $type): string
+    {
+        $rate = (float) $invoice->usd_khr_rate;
+
+        if ($rate <= 0) {
+            $amount = match ($type) {
+                'due' => $invoice->amount_due,
+                'paid' => $invoice->amount_paid,
+                'balance' => $invoice->balance,
+            };
+            return self::formatForRecord($amount, $invoice);
+        }
+
+        $usd = 0.0;
+        $khr = 0.0;
+
+        switch ($type) {
+            case 'due':
+                $usd = (float) ($invoice->total_usd ?? $invoice->amount_due);
+                $khr = (float) ($invoice->total_khr ?? ($invoice->amount_due * $rate));
+                break;
+            case 'paid':
+                $usd = (float) ($invoice->paid_usd ?? $invoice->amount_paid);
+                $khr = (float) ($invoice->paid_khr ?? ($invoice->amount_paid * $rate));
+                break;
+            case 'balance':
+                $usd = $invoice->balance_usd;
+                $khr = $invoice->balance_khr;
+                break;
+        }
+
+        $usdFormatted = self::format($usd, 'USD');
+        $khrFormatted = self::format($khr, 'KHR');
+
+        return "{$usdFormatted} / {$khrFormatted}";
     }
 }

@@ -27,7 +27,7 @@ class InvoiceOverdueNotification extends Notification
         return (new MailMessage)
             ->subject(__('Invoice :number is overdue', ['number' => $this->invoice->invoice_number]))
             ->line(__('This invoice is now overdue.'))
-            ->line(__('Outstanding balance: :amount', ['amount' => Money::formatForRecord($this->invoice->balance, $this->invoice)]));
+            ->line(__('Outstanding balance: :amount', ['amount' => Money::formatInvoiceAmount($this->invoice, 'balance')]));
     }
 
     /** @return array<string, mixed> */
@@ -43,7 +43,7 @@ class InvoiceOverdueNotification extends Notification
             'title' => __('Invoice overdue'),
             'body' => __('Invoice :number has an outstanding balance of :amount.', [
                 'number' => $this->invoice->invoice_number,
-                'amount' => Money::formatForRecord($this->invoice->balance, $this->invoice),
+                'amount' => Money::formatInvoiceAmount($this->invoice, 'balance'),
             ]),
         ];
     }

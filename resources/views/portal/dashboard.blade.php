@@ -52,9 +52,9 @@
                 <p class="mt-1 text-xs text-slate-400">{{ __('Due') }} {{ $invoice->due_date?->format('d M Y') }}</p>
             </div>
             <div class="text-right">
-                <p class="text-lg font-bold text-slate-900">{{ $money($invoice->amount_due) }}</p>
+                <p class="text-lg font-bold text-slate-900">{{ Money::formatInvoiceAmount($invoice, 'due') }}</p>
                 @if ((float) $invoice->balance > 0)
-                    <p class="text-xs text-slate-500">{{ __('Balance') }} {{ $money($invoice->balance) }}</p>
+                    <p class="text-xs text-slate-500">{{ __('Balance') }} {{ Money::formatInvoiceAmount($invoice, 'balance') }}</p>
                 @endif
                 <span class="mt-1 inline-block rounded-full px-2.5 py-0.5 text-xs font-medium {{ $badge($invoice->payment_status) }}">
                     {{ $invoice->payment_status->getLabel() }}

@@ -60,11 +60,11 @@ class RentalResource extends Resource
                         ->helperText(__('Only vacant rooms are shown.'))
                         ->searchable()->preload()->required()
                         ->live()
-                        // selecting a unit pulls its rent (the tenant login is minted
-                        // automatically on save — one login per tenant)
                         ->afterStateUpdated(function ($state, Forms\Set $set) {
                             if ($state && $unit = \App\Models\Unit::find($state)) {
                                 $set('monthly_rent', $unit->rent_amount);
+                                $set('monthly_rent_currency', $unit->rent_currency ?: 'USD');
+                                $set('security_deposit_currency', $unit->rent_currency ?: 'USD');
                             }
                         })
                         // Guard "one active tenancy per unit" with a friendly message
@@ -90,10 +90,41 @@ class RentalResource extends Resource
                             };
                         }),
                     Forms\Components\Select::make('status')->options(RentalStatus::class)->default(RentalStatus::Active)->required(),
-                    Forms\Components\TextInput::make('monthly_rent')->numeric()->prefix(fn () => Money::activeSymbol())->required(),
-                    Forms\Components\TextInput::make('security_deposit')->numeric()->prefix(fn () => Money::activeSymbol())
-                        ->default(0)
-                        ->dehydrateStateUsing(fn ($state) => $state === '' || $state === null ? 0 : $state),
+                    Forms\Components\Grid::make(2)
+                        ->schema([
+                            Forms\Components\TextInput::make('monthly_rent')
+                                ->label(__('Monthly rent'))
+                                ->numeric()
+                                ->required(),
+                            Forms\Components\Select::make('monthly_rent_currency')
+                                ->label(__('Rent currency'))
+                                ->options([
+                                    'USD' => 'USD ($)',
+                                    'KHR' => 'KHR (៛)',
+                                ])
+                                ->default(fn () => ActiveProperty::id() ? Money::forPropertyId(ActiveProperty::id()) : 'USD')
+                                ->live()
+                                ->afterStateUpdated(function ($state, Forms\Set $set) {
+                                    $set('security_deposit_currency', $state);
+                                })
+                                ->required(),
+                        ]),
+                    Forms\Components\Grid::make(2)
+                        ->schema([
+                            Forms\Components\TextInput::make('security_deposit')
+                                ->label(__('Security deposit'))
+                                ->numeric()
+                                ->default(0)
+                                ->dehydrateStateUsing(fn ($state) => $state === '' || $state === null ? 0 : $state),
+                            Forms\Components\Select::make('security_deposit_currency')
+                                ->label(__('Deposit currency'))
+                                ->options([
+                                    'USD' => 'USD ($)',
+                                    'KHR' => 'KHR (៛)',
+                                ])
+                                ->default(fn () => ActiveProperty::id() ? Money::forPropertyId(ActiveProperty::id()) : 'USD')
+                                ->required(),
+                        ]),
                     Forms\Components\DatePicker::make('start_date')->required(),
                     Forms\Components\DatePicker::make('end_date'),
                 ])->columns(2),
@@ -199,6 +230,7 @@ class RentalResource extends Resource
     {
         return [
             \App\Filament\Resources\UnitResource\RelationManagers\UtilityUsageRelationManager::class,
+            \App\Filament\Resources\PropertyUtilityResource\RelationManagers\ChargeRulesRelationManager::class,
         ];
     }
 
