@@ -410,7 +410,7 @@
                                 <div class="biz">{{ $business }}</div>
                                 @if ($address)
                                     <div class="biz-addr">{{ $address }}</div>
-                                </endif>
+                                @endif
                             </td>
                         </tr>
                     </table>
