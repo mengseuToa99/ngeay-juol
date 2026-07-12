@@ -149,6 +149,11 @@ class Property extends Model implements HasMedia
         return $this->hasOne(PropertySetting::class);
     }
 
+    public function moveInRules(): HasMany
+    {
+        return $this->hasMany(MoveInRule::class);
+    }
+
     public function maintenanceRequests(): HasMany
     {
         return $this->hasMany(MaintenanceRequest::class);

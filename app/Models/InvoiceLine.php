@@ -10,6 +10,8 @@ class InvoiceLine extends Model
 {
     protected $fillable = [
         'invoice_id',
+        'rental_move_in_requirement_id',
+        'billing_classification',
         'line_type',
         'utility_usage_id',
         'description',
@@ -57,6 +59,11 @@ class InvoiceLine extends Model
     public function invoice(): BelongsTo
     {
         return $this->belongsTo(Invoice::class);
+    }
+
+    public function moveInRequirement(): BelongsTo
+    {
+        return $this->belongsTo(RentalMoveInRequirement::class, 'rental_move_in_requirement_id');
     }
 
     public function utilityUsage(): BelongsTo

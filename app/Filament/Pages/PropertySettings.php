@@ -213,6 +213,18 @@ class PropertySettings extends Page implements HasForms
                             ->default(false)
                             ->inline(false),
 
+                        Forms\Components\Select::make('move_in_preset')
+                            ->label(__('Move-in requirements preset'))
+                            ->options([
+                                'flexible' => __('Flexible'),
+                                'first_last' => __('First and last month'),
+                                'first_deposit' => __('First month and deposit'),
+                                'first_last_deposit' => __('First, last, and deposit'),
+                                'custom' => __('Custom'),
+                            ])
+                            ->default('flexible')
+                            ->helperText(__('Presets populate structured rules. Existing tenancy snapshots are never changed.')),
+
                         Forms\Components\Toggle::make('create_invoice_on_move_in')
                             ->label(__('Auto-create invoice on move-in'))
                             ->helperText(__('Automatically generate the first rent invoice when a new tenant is created.'))
@@ -226,6 +238,7 @@ class PropertySettings extends Page implements HasForms
                                 0 => __('No deposit'),
                                 1 => __('1 month (1× rent)'),
                                 2 => __('2 months (2× rent)'),
+                                3 => __('3 months (3× rent)'),
                             ])
                             ->default(0)
                             ->selectablePlaceholder(false)
@@ -341,7 +354,16 @@ class PropertySettings extends Page implements HasForms
             return;
         }
 
-        $this->setting->update($this->form->getState());
+        $state = $this->form->getState();
+        $previousPreset = $this->setting->move_in_preset;
+        $this->setting->update($state);
+        if (($state['move_in_preset'] ?? null) && $state['move_in_preset'] !== 'custom' && $state['move_in_preset'] !== $previousPreset) {
+            app(\App\Services\MoveInRuleService::class)->configurePreset(
+                $this->setting->property_id,
+                $state['move_in_preset'],
+                $state['currency'] ?? $this->setting->currency,
+            );
+        }
 
         Notification::make()
             ->success()

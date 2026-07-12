@@ -27,6 +27,7 @@ class PropertySetting extends Model
         'require_first_month_upfront',
         'create_invoice_on_move_in',
         'upfront_deposit_months',
+        'move_in_preset',
         // ── Monthly billing feature flag ────────────────────────────────────────────
         'monthly_billing_enabled',
         'invoice_due_days',
@@ -52,6 +53,7 @@ class PropertySetting extends Model
             'require_first_month_upfront' => 'boolean',
             'create_invoice_on_move_in'   => 'boolean',
             'upfront_deposit_months'      => 'integer',
+            'move_in_preset'              => 'string',
             'monthly_billing_enabled'     => 'boolean',
             'invoice_due_days'            => 'integer',
         ];

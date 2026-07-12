@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Enums\RentalStatus;
+use App\Enums\MoveInReadinessStatus;
 use App\Enums\UnitStatus;
 use App\Models\Concerns\BelongsToLandlord;
 use App\Services\TenancyService;
@@ -55,6 +56,13 @@ class Rental extends Model implements HasMedia
         'start_date',
         'end_date',
         'next_invoice_date',
+        'move_in_status',
+        'moved_in_at',
+        'moved_in_by_id',
+        'move_in_override_reason',
+        'move_in_override_at',
+        'move_in_override_by_id',
+        'move_in_promised_payment_date',
     ];
 
     protected function casts(): array
@@ -68,6 +76,10 @@ class Rental extends Model implements HasMedia
             'end_date'           => 'date',
             'next_invoice_date'  => 'date',
             'occupant_dob'       => 'date',
+            'move_in_status'     => MoveInReadinessStatus::class,
+            'moved_in_at'        => 'datetime',
+            'move_in_override_at' => 'datetime',
+            'move_in_promised_payment_date' => 'date',
         ];
     }
 
@@ -113,12 +125,17 @@ class Rental extends Model implements HasMedia
         static::saved(function (Rental $rental) {
             // An active tenancy occupies its room. (occupyUnit only flips an
             // otherwise-free room — it never overrides Maintenance/Unavailable.)
-            if ($rental->status === RentalStatus::Active) {
+            // Active is the historical occupancy status. New gated tenancies use
+            // move_in_status and are occupied only by CompleteMoveInAction.
+            $hasRequirements = $rental->moveInRequirements()->exists();
+            $mayOccupy = $rental->status === RentalStatus::Active
+                && (! $hasRequirements || $rental->move_in_status === MoveInReadinessStatus::Active);
+            if ($mayOccupy) {
                 $rental->occupyUnit();
 
                 // Auto-create first invoice if enabled in Property Settings
                 $setting = \App\Models\PropertySetting::where('property_id', $rental->property_id)->first();
-                if ($setting && $setting->create_invoice_on_move_in) {
+                if ($setting && $setting->create_invoice_on_move_in && (! $hasRequirements || $rental->move_in_status === MoveInReadinessStatus::Active)) {
                     $exists = \App\Models\Invoice::where('rental_id', $rental->id)->exists();
                     if (! $exists) {
                         $periodStart = \Illuminate\Support\Carbon::parse($rental->start_date);
@@ -269,5 +286,10 @@ class Rental extends Model implements HasMedia
     public function chargeRules(): HasMany
     {
         return $this->hasMany(ChargeRule::class, 'scope_id')->where('scope_type', 'rental');
+    }
+
+    public function moveInRequirements(): HasMany
+    {
+        return $this->hasMany(RentalMoveInRequirement::class);
     }
 }

@@ -178,7 +178,9 @@ class InvoiceBuilderService
                         : 'First month rent';
 
                     // Add a security deposit line if configured.
-                    $depositAmount = ProratingService::depositAmount($propertySetting, (float) $rental->monthly_rent, $depositCurrency);
+                    // A rental's agreed deposit is a snapshot. Never replace it
+                    // with a later property multiplier change.
+                    $depositAmount = (float) ($rental->security_deposit ?: 0);
                     if ($depositAmount > 0) {
                         $depositUsd = \App\Support\Money::convert($depositAmount, $depositCurrency, 'USD', $lineRate);
                         $depositKhr = \App\Support\Money::convert($depositAmount, $depositCurrency, 'KHR', $lineRate);
@@ -187,7 +189,7 @@ class InvoiceBuilderService
 
                         $invoice->lines()->create([
                             'line_type'   => InvoiceLineType::AdHoc,
-                            'description' => 'Security deposit (' . ($propertySetting->upfront_deposit_months ?? 0) . '× monthly rent)',
+                            'description' => 'Security deposit',
                             'quantity'    => 1,
                             'unit_price'  => $depositAmount,
                             'amount'      => $depositAmount,
@@ -198,6 +200,7 @@ class InvoiceBuilderService
                             'unit_price_usd' => $depositUnitPriceUsd,
                             'unit_price_khr' => $depositUnitPriceKhr,
                             'exchange_rate' => $rate,
+                            'billing_classification' => 'security_deposit',
                         ]);
 
                         $totalUsd += $depositUsd;
@@ -271,6 +274,7 @@ class InvoiceBuilderService
                         'charge_state' => $rentState,
                         'charge_state_label' => $rentStateLabel,
                         'charge_state_reason' => $rentReason,
+                        'billing_classification' => $isFirstInvoice ? 'first_period_rent' : 'rent',
                     ]);
 
                     $totalUsd += $rentUsd;
@@ -390,6 +394,7 @@ class InvoiceBuilderService
                     'unit_price_usd' => $adhocUnitPriceUsd,
                     'unit_price_khr' => $adhocUnitPriceKhr,
                     'exchange_rate' => $rate,
+                    'billing_classification' => $line['billing_classification'] ?? 'fee',
                 ]);
                 
                 $totalUsd += $adhocUsd;

@@ -6,6 +6,7 @@ use App\Enums\PaymentMethod;
 use App\Notifications\PaymentRecordedNotification;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 
 class Payment extends Model
 {
@@ -81,5 +82,10 @@ class Payment extends Model
     public function recordedBy(): BelongsTo
     {
         return $this->belongsTo(User::class, 'recorded_by_id');
+    }
+
+    public function moveInAllocations(): HasMany
+    {
+        return $this->hasMany(MoveInPaymentAllocation::class);
     }
 }

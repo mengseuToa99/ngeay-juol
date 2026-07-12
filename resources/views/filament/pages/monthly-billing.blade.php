@@ -292,17 +292,38 @@
         {{-- Step 3: Desktop Reading Workspace --}}
         @elseif($this->step === 'reading')
             {{-- Desktop Grid View --}}
-            <div class="space-y-6">
-                    <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
-                        <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800 text-left text-sm">
-                            <thead class="bg-gray-50 dark:bg-gray-800/50">
+            <div class="rw-reading-workspace space-y-5">
+                    <div class="rw-reading-toolbar">
+                        <div>
+                            <p class="rw-reading-eyebrow">{{ __('Meter readings') }}</p>
+                            <h2>{{ __('Enter this month’s readings') }}</h2>
+                            <p>{{ __('Work across each room, then review every charge before creating invoices.') }}</p>
+                        </div>
+                        <div class="rw-reading-toolbar__stats" aria-label="{{ __('Billing progress') }}">
+                            <div><strong>{{ count($this->rooms) }}</strong><span>{{ __('Rooms') }}</span></div>
+                            <div><strong>{{ count($this->activeUtilities()) }}</strong><span>{{ __('Utilities') }}</span></div>
+                            <div><strong>{{ $this->skippedRoomCount() }}</strong><span>{{ __('Skipped') }}</span></div>
+                        </div>
+                    </div>
+
+                    <div class="rw-reading-help">
+                        <x-heroicon-o-information-circle class="h-5 w-5 shrink-0" />
+                        <span>{{ __('Complete each room below. Utility charges update as you enter readings.') }}</span>
+                    </div>
+
+                    @include('filament.pages.partials.monthly-billing-reading-table')
+
+                    @if(false)
+                    <div class="rw-reading-table-wrap overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                        <table class="rw-reading-table min-w-full text-left text-sm">
+                            <thead>
                                 <tr>
-                                    <th class="px-4 py-3 font-semibold text-gray-950 dark:text-white">{{ __('Room') }}</th>
-                                    <th class="px-4 py-3 font-semibold text-gray-950 dark:text-white">{{ __('Tenant') }}</th>
+                                    <th class="rw-sticky-room px-4 py-3 font-semibold">{{ __('Room') }}</th>
+                                    <th class="rw-sticky-tenant px-4 py-3 font-semibold">{{ __('Tenant') }}</th>
                                     <th class="px-4 py-3 font-semibold text-gray-950 dark:text-white text-right">{{ __('Rent') }}</th>
                                     <th class="px-4 py-3 font-semibold text-gray-950 dark:text-white min-w-[240px]">{{ __('Billing period') }}</th>
                                     @foreach($this->activeUtilities() as $utility)
-                                        <th class="px-4 py-3 font-semibold text-gray-950 dark:text-white min-w-[160px]">{{ __($utility->name) }}</th>
+                                        <th class="rw-utility-heading px-4 py-3 font-semibold">{{ __($utility->name) }}</th>
                                     @endforeach
                                     <th class="px-4 py-3 font-semibold text-gray-950 dark:text-white text-right">{{ __('Est. Total') }}</th>
                                     <th class="px-4 py-3 font-semibold text-gray-950 dark:text-white text-center">{{ __('Actions') }}</th>
@@ -310,15 +331,15 @@
                             </thead>
                             <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
                                 @foreach($this->rooms as $index => $room)
-                                    @php($summary = $this->roomSummary($index))
-                                    <tr class="{{ $room['skipped'] ? 'opacity-50 bg-gray-50/50 dark:bg-gray-800/10' : '' }} hover:bg-gray-50/30 dark:hover:bg-gray-800/10 transition-colors">
+                                    @php $summary = $this->roomSummary($index); @endphp
+                                    <tr class="{{ $room['skipped'] ? 'rw-reading-row--skipped' : '' }}">
                                         <!-- Room Number -->
-                                        <td class="px-4 py-3 font-bold text-gray-950 dark:text-white">
-                                            {{ $room['room_number'] }}
+                                        <td class="rw-sticky-room px-4 py-4 font-bold">
+                                            <span class="rw-room-badge">{{ $room['room_number'] }}</span>
                                         </td>
                                         <!-- Occupant -->
-                                        <td class="px-4 py-3">
-                                            <div class="font-medium text-gray-900 dark:text-white truncate max-w-[150px]">
+                                        <td class="rw-sticky-tenant px-4 py-4">
+                                            <div class="rw-tenant-name font-semibold truncate">
                                                 {{ $room['occupant_name'] }}
                                             </div>
                                         </td>
@@ -361,9 +382,11 @@
                                         </td>
                                         <!-- Metred Utilities -->
                                         @foreach($room['utilities'] as $utilityIndex => $utility)
-                                            @php($preview = $this->utilityPreview($index, $utilityIndex))
-                                            @php($state = $utility['state_override'] ?? 'normal')
-                                            <td class="px-4 py-3">
+                                            @php
+                                                $preview = $this->utilityPreview($index, $utilityIndex);
+                                                $state = $utility['state_override'] ?? 'normal';
+                                            @endphp
+                                            <td class="rw-utility-cell px-4 py-4">
                                                 <div class="mb-2 flex flex-wrap items-center gap-1">
                                                     <span class="inline-flex items-center rounded-md bg-gray-100 px-1.5 py-0.5 text-[9px] font-semibold text-gray-700 dark:bg-gray-800 dark:text-gray-300">
                                                         {{ \App\Services\ChargeRuleResolver::stateLabel((string) $state) }}
@@ -463,6 +486,7 @@
                             </tbody>
                         </table>
                     </div>
+                    @endif
 
                     {{-- Desktop bottom controls --}}
                     <div class="flex items-center justify-between pt-4">
@@ -489,6 +513,15 @@
 
         {{-- Step 4: Review Screen --}}
         @elseif($this->step === 'review')
+            @php
+                $reviewRoomSummaries = collect(array_keys($rooms))
+                    ->map(fn ($index) => $this->roomSummary($index));
+                $summary = [
+                    'charges_to_bill' => $reviewRoomSummaries->pluck('charges_to_bill')->flatten()->unique()->values()->all(),
+                    'free_or_waived' => $reviewRoomSummaries->pluck('free_or_waived')->flatten()->unique()->values()->all(),
+                    'not_billed' => $reviewRoomSummaries->pluck('not_billed')->flatten()->unique()->values()->all(),
+                ];
+            @endphp
             <div
                 class="space-y-4"
                 @if($this->reviewFocusIndex !== null)
@@ -580,7 +613,7 @@
                 <!-- Room Cards -->
                 <div class="space-y-4">
                     @foreach($rooms as $index => $room)
-                        @php($summary = $this->roomSummary($index))
+                        @php $summary = $this->roomSummary($index); @endphp
                         <div
                             id="review-room-{{ $index }}"
                             class="rw-review-card rounded-xl border border-gray-200 bg-white p-5 shadow-sm dark:border-gray-800 dark:bg-gray-900 space-y-4 transition hover:border-gray-300 dark:hover:border-gray-700"
@@ -801,7 +834,7 @@
                                 <span class="font-bold">{{ $this->roomsWithWarningsCount() }}</span>
                             </div>
                         @endif
-                        @php($rateInfo = $this->getExchangeRateInfo())
+                        @php $rateInfo = $this->getExchangeRateInfo(); @endphp
                         <div class="border-t border-gray-200 dark:border-gray-700 my-2 pt-2 text-xs space-y-1">
                             <div class="font-semibold text-gray-700 dark:text-gray-300">
                                 {{ __('Exchange rate for this invoice run') }}:

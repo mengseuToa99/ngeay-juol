@@ -63,9 +63,9 @@ class PortfolioStatsWidget extends StatsOverviewWidget
             Stat::make(__('Outstanding'), $outstandingLabel)
                 ->description(__('unpaid invoice balances'))
                 ->color($hasOutstanding ? 'warning' : 'success'),
-            Stat::make(__('Charge decisions'), $decisionSummary)
-                ->description(__('Billing run audit'))
-                ->descriptionIcon('heroicon-o-clipboard-document-list'),
+            // Stat::make(__('Charge decisions'), $decisionSummary)
+            //     ->description(__('Billing run audit'))
+            //     ->descriptionIcon('heroicon-o-clipboard-document-list'),
             Stat::make(__('Active waivers'), UtilityWaiver::where('waived', true)->count())
                 ->descriptionIcon('heroicon-o-receipt-percent'),
         ];
