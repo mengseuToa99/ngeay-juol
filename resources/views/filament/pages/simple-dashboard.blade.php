@@ -8,13 +8,19 @@
     {{-- Simple Mode Shell                                          --}}
     {{-- ─────────────────────────────────────────────────────────── --}}
     <div
-        class="rw-simple mx-auto max-w-lg space-y-5 px-4 py-4"
+        class="rw-simple mx-auto space-y-5 px-4 py-4 transition-all duration-350"
         x-data="{
             screen: new URLSearchParams(window.location.search).get('screen') || 'home',
             setScreen(s) {
                 this.screen = s;
                 history.replaceState(null, '', window.location.pathname + '?screen=' + s);
             }
+        }"
+        :class="{
+            'rw-simple--narrow': screen === 'home' || screen === 'invoices',
+            'rw-simple--wide': screen === 'add-tenant' || screen === 'rooms',
+            'rw-simple--compact': screen === 'end-tenancy',
+            'rw-simple--billing': screen === 'billing-invoice'
         }"
     >
         {{-- ── Header bar ── --}}

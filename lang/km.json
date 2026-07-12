@@ -941,5 +941,16 @@
     "tenant": "អ្នកជួល",
     "units": "បន្ទប់",
     "unpaid invoice balances": "សមតុល្យវិក្កយបត្រមិនទាន់បង់",
-    "—": "—"
+    "—": "—",
+    "Billing readings": "ការអានសម្រាប់ចេញវិក្កយបត្រ",
+    "Clear all": "សម្អាតទាំងអស់",
+    "Go to Review": "ទៅពិនិត្យឡើងវិញ",
+    "Manual billing": "ចេញវិក្កយបត្រដោយដៃ",
+    "Next room": "បន្ទប់បន្ទាប់",
+    "Review complete? Ready to batch-generate invoices.": "ពិនិត្យរួចរាល់ហើយឬនៅ? ត្រៀមបង្កើតវិក្កយបត្រជាក្រុម។",
+    "Scheduled billing": "ចេញវិក្កយបត្រតាមកាលវិភាគ",
+    "Select all": "ជ្រើសរើសទាំងអស់",
+    "Select rooms to bill": "ជ្រើសរើសបន្ទប់សម្រាប់ចេញវិក្កយបត្រ",
+    "Toggle all": "បិទ/បើកទាំងអស់",
+    "rooms selected": "បន្ទប់បានជ្រើសរើស"
 }

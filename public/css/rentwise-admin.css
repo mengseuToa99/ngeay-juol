@@ -1204,6 +1204,14 @@ select.rw-sm-input {
 [x-cloak] { display: none !important; }
 
 /* ── Mobile Width & Padding Optimizations for Simple Mode ── */
+.rw-simple {
+    width: 100%;
+}
+.rw-simple--narrow { max-width: 32rem !important; }
+.rw-simple--compact { max-width: 48rem !important; }
+.rw-simple--billing { max-width: 56rem !important; }
+.rw-simple--wide { max-width: 72rem !important; }
+
 @media (max-width: 640px) {
     /* Collapse the huge default padding on Filament's page containers when rendering the simple dashboard page */
     .fi-main:has(.rw-simple),
@@ -1254,5 +1262,4 @@ select.rw-sm-input {
 .fi-page:has(.rw-simple) .fi-header {
     display: none !important;
 }
-
 

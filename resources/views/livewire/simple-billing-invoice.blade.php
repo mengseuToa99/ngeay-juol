@@ -116,51 +116,54 @@
                         </div>
                     </div>
                 @else
-                    <div class="flex items-center gap-2 rounded-lg border border-gray-150 bg-gray-50/50 p-2 dark:border-gray-800 dark:bg-gray-800/30">
+                    <div class="grid grid-cols-2 gap-1 rounded-xl border border-gray-200 bg-gray-100/80 p-1 dark:border-gray-700 dark:bg-gray-900/80">
                         <button
                             type="button"
                             wire:click="$set('manualMode', false)"
-                            class="flex-1 py-1.5 px-2 text-[10px] font-semibold rounded-md border text-center transition {{ !$this->manualMode ? 'bg-primary-600 text-white border-primary-600 dark:bg-primary-500' : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700' }}"
+                            class="rounded-lg px-3 py-2 text-[10px] font-bold text-center transition {{ !$this->manualMode ? 'bg-white text-primary-700 shadow-sm dark:bg-gray-800 dark:text-primary-300' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}"
                         >
                             {{ __('Scheduled billing') }}
                         </button>
                         <button
                             type="button"
                             wire:click="$set('manualMode', true)"
-                            class="flex-1 py-1.5 px-2 text-[10px] font-semibold rounded-md border text-center transition {{ $this->manualMode ? 'bg-primary-600 text-white border-primary-600 dark:bg-primary-500' : 'bg-white text-gray-700 dark:bg-gray-800 dark:text-gray-200 border-gray-200 dark:border-gray-700' }}"
+                            class="rounded-lg px-3 py-2 text-[10px] font-bold text-center transition {{ $this->manualMode ? 'bg-primary-600 text-white shadow-sm' : 'text-gray-500 hover:text-gray-800 dark:text-gray-400 dark:hover:text-gray-200' }}"
                         >
                             {{ __('Manual billing') }}
                         </button>
                     </div>
 
                     @if($this->manualMode)
-                        <div class="rounded-xl border border-gray-100 bg-gray-50/50 p-3 dark:border-gray-800 dark:bg-gray-800/30 space-y-2">
-                            <div class="flex items-center justify-between border-b border-gray-200/50 pb-2 dark:border-gray-800">
-                                <span class="text-[10px] font-semibold text-gray-500 dark:text-gray-400 uppercase tracking-wider">
-                                    {{ __('Select rooms to bill') }}
-                                </span>
+                        <div class="rounded-2xl border border-gray-200 bg-white p-2.5 shadow-sm dark:border-gray-700 dark:bg-gray-900 space-y-2.5">
+                            <div class="flex items-center justify-between gap-2 border-b border-gray-100 px-1 pb-2 dark:border-gray-800">
+                                <div>
+                                    <p class="text-[11px] font-bold leading-tight text-gray-900 dark:text-white">{{ __('Select rooms to bill') }}</p>
+                                    <p class="mt-0.5 text-[9px] leading-tight text-gray-500 dark:text-gray-400">
+                                        {{ count($this->selectedRentalIds) }} / {{ $this->activeRentals()->count() }} {{ __('rooms selected') }}
+                                    </p>
+                                </div>
                                 <button
                                     type="button"
                                     wire:click="toggleSelectAllRentals"
-                                    class="text-[10px] text-primary-600 dark:text-primary-400 font-semibold hover:underline"
+                                    class="shrink-0 rounded-lg border border-primary-200 bg-primary-50 px-2 py-1 text-[9px] font-bold leading-tight text-primary-700 transition hover:bg-primary-100 dark:border-primary-900/60 dark:bg-primary-500/10 dark:text-primary-300"
                                 >
-                                    {{ __('Toggle all') }}
+                                    {{ count($this->selectedRentalIds) === $this->activeRentals()->count() ? __('Clear all') : __('Select all') }}
                                 </button>
                             </div>
-                            <div class="grid grid-cols-2 gap-1.5 max-h-36 overflow-y-auto">
+                            <div class="grid max-h-48 grid-cols-1 gap-1.5 overflow-y-auto pr-1">
                                 @forelse($this->activeRentals() as $rental)
-                                    <label class="flex items-center gap-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 p-1.5 cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800 transition">
+                                    <label class="group flex min-h-12 cursor-pointer items-center gap-2 rounded-xl border px-2 py-1.5 transition {{ in_array($rental->id, $this->selectedRentalIds) ? 'border-primary-500 bg-primary-50/70 ring-1 ring-primary-500/20 dark:border-primary-500 dark:bg-primary-500/10' : 'border-gray-200 bg-gray-50/50 hover:border-primary-300 hover:bg-primary-50/40 dark:border-gray-700 dark:bg-gray-800/40' }}">
                                         <input
                                             type="checkbox"
                                             value="{{ $rental->id }}"
                                             wire:model.live="selectedRentalIds"
-                                            class="rounded border-gray-300 dark:border-gray-700 text-primary-600 focus:ring-primary-500"
+                                            class="h-3.5 w-3.5 shrink-0 rounded border-gray-300 text-primary-600 shadow-sm focus:ring-2 focus:ring-primary-500 dark:border-gray-600 dark:bg-gray-800"
                                         >
                                         <div class="min-w-0">
-                                            <p class="text-[11px] font-bold text-gray-900 dark:text-white truncate">
+                                            <p class="truncate text-[11px] font-bold leading-tight text-gray-900 dark:text-white">
                                                 {{ $rental->unit?->room_number }}
                                             </p>
-                                            <p class="text-[9px] text-gray-500 dark:text-gray-400 truncate">
+                                            <p class="truncate text-[9px] leading-tight text-gray-500 dark:text-gray-400">
                                                 {{ $rental->occupant_name }}
                                             </p>
                                         </div>
@@ -174,13 +177,13 @@
                         </div>
                     @endif
 
-                    <div class="flex justify-end pt-1">
+                    <div class="pt-0.5">
                         @if($this->manualMode)
                             <button
                                 type="button"
                                 wire:click="startBilling"
                                 @disabled(count($this->selectedRentalIds) === 0)
-                                class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary-500 disabled:opacity-50 disabled:cursor-not-allowed transition"
+                                class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500 disabled:cursor-not-allowed disabled:opacity-50"
                             >
                                 {{ __('Start billing') }}
                             </button>
@@ -189,7 +192,7 @@
                                 <button
                                     type="button"
                                     wire:click="startBilling"
-                                    class="inline-flex items-center gap-1.5 rounded-lg bg-primary-600 px-4 py-2 text-xs font-bold text-white shadow-sm hover:bg-primary-500 transition"
+                                    class="inline-flex w-full items-center justify-center gap-1.5 rounded-xl bg-primary-600 px-4 py-2.5 text-xs font-bold text-white shadow-sm transition hover:bg-primary-500"
                                 >
                                     {{ __('Start billing') }}
                                 </button>
@@ -211,7 +214,14 @@
         {{-- Step: Reading Workspace --}}
         @elseif($this->step === 'reading')
             <div class="space-y-4">
-                <div class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
+                <div class="flex items-end justify-between gap-3 px-1">
+                    <div>
+                        <p class="text-[10px] font-bold uppercase tracking-[0.16em] text-primary-600 dark:text-primary-400">{{ __('Billing readings') }}</p>
+                        <h2 class="mt-1 text-base font-bold text-gray-950 dark:text-white">{{ __('Room') }} {{ $this->currentRoomNumber() }}</h2>
+                    </div>
+                    <span class="rounded-full bg-gray-100 px-2.5 py-1 text-[10px] font-bold text-gray-600 dark:bg-gray-800 dark:text-gray-300">{{ $this->currentRoomProgress() }}</span>
+                </div>
+                <div x-init="$nextTick(() => $el.querySelector('[data-sbi-new-reading]')?.focus())" class="overflow-x-auto rounded-xl border border-gray-200 bg-white shadow-sm dark:border-gray-800 dark:bg-gray-900">
                     <table class="min-w-full divide-y divide-gray-200 dark:divide-gray-800 text-left text-xs">
                         <thead class="bg-gray-50 dark:bg-gray-800/50">
                             <tr>
@@ -227,7 +237,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-200 dark:divide-gray-800">
-                            @foreach($this->rooms as $index => $room)
+                            @foreach([$this->currentRoomIndex => $this->currentRoom()] as $index => $room)
                                 @php($summary = $this->roomSummary($index))
                                 <tr class="{{ $room['skipped'] ? 'opacity-50 bg-gray-50/50 dark:bg-gray-800/10' : '' }} hover:bg-gray-50/30 dark:hover:bg-gray-800/10 transition-colors">
                                     <td class="px-2 py-2 font-bold text-gray-950 dark:text-white text-[11px]">
@@ -247,18 +257,18 @@
                                         @endif
                                     </td>
                                     <td class="px-2 py-2">
-                                        <div class="flex items-center gap-1">
+                                        <div class="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:items-center">
                                             <input
                                                 type="date"
                                                 wire:model.live="rooms.{{ $index }}.period_start"
-                                                class="rounded border-gray-300 bg-white text-[9px] px-1 py-0.5 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white w-24"
+                                                class="min-w-0 w-full rounded border-gray-300 bg-white px-1 py-0.5 text-[9px] shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white sm:w-24"
                                                 {{ $room['skipped'] ? 'disabled' : '' }}
                                             >
-                                            <span class="text-gray-400 dark:text-gray-600 text-[9px]">&rarr;</span>
+                                            <span class="hidden text-gray-400 dark:text-gray-600 text-[9px] sm:inline">&rarr;</span>
                                             <input
                                                 type="date"
                                                 wire:model.live="rooms.{{ $index }}.period_end"
-                                                class="rounded border-gray-300 bg-white text-[9px] px-1 py-0.5 shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white w-24"
+                                                class="min-w-0 w-full rounded border-gray-300 bg-white px-1 py-0.5 text-[9px] shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white sm:w-24"
                                                 {{ $room['skipped'] ? 'disabled' : '' }}
                                             >
                                         </div>
@@ -276,7 +286,7 @@
                                         @php($preview = $this->utilityPreview($index, $utilityIndex))
                                         <td class="px-2 py-2">
                                             @if($utility['requires_reading'] ?? true)
-                                                <div class="text-[8px] text-gray-500 dark:text-gray-400">
+                                                <div class="text-[8px] text-gray-400 dark:text-gray-500">
                                                     {{ __('Prev') }}: <span class="font-medium text-gray-700 dark:text-gray-300">{{ $preview['old_reading'] !== null ? $this->formatQuantity($preview['old_reading']) : '—' }}</span>
                                                 </div>
                                                 <input
@@ -284,6 +294,7 @@
                                                     step="any"
                                                     inputmode="decimal"
                                                     wire:model.live.debounce.300ms="rooms.{{ $index }}.utilities.{{ $utilityIndex }}.new_reading"
+                                                    data-sbi-new-reading
                                                     class="w-full rounded border-gray-300 bg-white px-1 py-0.5 text-[10px] font-semibold shadow-sm focus:border-emerald-500 focus:ring-emerald-500 dark:border-gray-700 dark:bg-gray-900 dark:text-white"
                                                     placeholder="{{ __('New') }}"
                                                     {{ $room['skipped'] ? 'disabled' : '' }}
@@ -327,20 +338,20 @@
                     </table>
                 </div>
 
-                <div class="flex items-center justify-between pt-2">
+                <div class="sticky bottom-2 z-40 flex items-center justify-between gap-2 rounded-2xl border border-gray-200 bg-white/95 p-2 shadow-lg backdrop-blur dark:border-gray-800 dark:bg-gray-950/95">
                     <button
                         type="button"
-                        wire:click="$set('step', 'start')"
+                        wire:click="previousRoom"
                         class="rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-[10px] font-semibold text-gray-700 shadow-sm hover:bg-gray-50 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-200 dark:hover:bg-gray-700"
                     >
-                        {{ __('Back') }}
+                        {{ __('Previous') }}
                     </button>
                     <button
                         type="button"
-                        wire:click="goToReview"
+                        wire:click="nextRoom"
                         class="inline-flex items-center gap-1 rounded-lg bg-primary-600 px-3 py-1.5 text-[10px] font-bold text-white shadow-sm hover:bg-primary-500 transition"
                     >
-                        {{ __('Go to Review') }}
+                        {{ $this->currentRoomIndex >= count($this->rooms) - 1 ? __('Go to Review') : __('Next room') }}
                     </button>
                 </div>
             </div>
