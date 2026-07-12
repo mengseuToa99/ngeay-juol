@@ -133,7 +133,7 @@
             </div>
 
             {{-- Actions --}}
-            <div class="mt-4 flex gap-2">
+            <div class="mt-4 flex flex-col sm:flex-row gap-2">
                 <a href="{{ \App\Filament\Resources\InvoiceResource::getUrl('edit', ['record' => $invoice->id], panel: 'landlord') }}"
                    class="rw-sm-btn-ghost flex-1 text-center"
                    id="invoice-view-{{ $invoice->id }}"
