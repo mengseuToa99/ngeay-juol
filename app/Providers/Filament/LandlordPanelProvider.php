@@ -91,15 +91,20 @@ class LandlordPanelProvider extends PanelProvider
             ->renderHook(
                 PanelsRenderHook::HEAD_END,
                 fn (): string => '<link rel="stylesheet" href="'.asset('css/rentwise-admin.css').'?v='.@filemtime(public_path('css/rentwise-admin.css')).'">'.
-                    '<link rel="manifest" href="'.asset('manifest.json').'">'.
+                    '<link rel="manifest" href="/manifest.json">'.
                     '<meta name="theme-color" content="#059669">'.
                     '<meta name="mobile-web-app-capable" content="yes">'.
                     '<meta name="apple-mobile-web-app-capable" content="yes">'.
-                    '<meta name="apple-mobile-web-app-title" content="ngeay juol">',
+                    '<meta name="apple-mobile-web-app-status-bar-style" content="default">'.
+                    '<meta name="apple-mobile-web-app-title" content="ងាយជួល">'.
+                    '<link rel="apple-touch-icon" href="/icons/icon-192.png">',
             )
             ->renderHook(
                 PanelsRenderHook::BODY_END,
-                fn (): string => '<script>if("serviceWorker" in navigator){navigator.serviceWorker.register("/sw.js").catch(()=>{})}</script>',
+                fn (): string => Blade::render(
+                    '<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("/sw.js").catch(()=>{})})}</script>' .
+                    '@include(\'filament.components.pwa-install-banner\')'
+                ),
             )
             ->renderHook(
                 PanelsRenderHook::USER_MENU_BEFORE,

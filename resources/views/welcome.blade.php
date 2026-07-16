@@ -6,6 +6,14 @@
         <title>{{ __('ngeay juol') }} - {{ __('Property Management, Beautifully Simplified.') }}</title>
         <link rel="icon" href="{{ asset('favicon.ico') }}" sizes="any">
         <link rel="icon" href="{{ asset('Khmer%20House%20Key.svg') }}" type="image/svg+xml">
+        <!-- PWA -->
+        <link rel="manifest" href="/manifest.json">
+        <meta name="theme-color" content="#059669">
+        <meta name="mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
+        <meta name="apple-mobile-web-app-title" content="ងាយជួល">
+        <link rel="apple-touch-icon" href="/icons/icon-192.png">
         
         <!-- Theme Detection Script -->
         <script>
@@ -494,6 +502,18 @@
                     mobileMenu?.classList.add('hidden');
                 });
             });
+        </script>
+
+        {{-- PWA: Install Banner --}}
+        @include('filament.components.pwa-install-banner')
+
+        {{-- PWA: Service Worker registration --}}
+        <script>
+            if ('serviceWorker' in navigator) {
+                window.addEventListener('load', () => {
+                    navigator.serviceWorker.register('/sw.js').catch(() => {});
+                });
+            }
         </script>
     </body>
 </html>

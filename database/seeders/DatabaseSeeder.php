@@ -11,10 +11,7 @@ class DatabaseSeeder extends Seeder
         $this->call([
             RolesAndPermissionsSeeder::class,
             AdminUserSeeder::class,
+            KhmerDemoSeeder::class,
         ]);
-
-        if (filter_var(env('SEED_DEMO', false), FILTER_VALIDATE_BOOL)) {
-            $this->call(KhmerDemoSeeder::class);
-        }
     }
 }

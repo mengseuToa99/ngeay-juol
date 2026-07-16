@@ -1,45 +1,68 @@
 /**
- * ngeay juol — Minimal PWA Service Worker
+ * ងាយជួល — ngeay juol PWA Service Worker v2
  *
- * Version 1 strategy:
- *   - Cache static shell assets (CSS, fonts, JS) on install.
- *   - Serve cached assets when available; fall back to network.
- *   - All API / Livewire / dynamic routes go to the network.
- *   - Offline: dynamic routes that fail show an offline message.
+ * Caching strategy:
+ *   - Shell assets (JS/CSS/icons/fonts): cache-first, long TTL
+ *   - App shell routes (/, /login, /landlord/simple): stale-while-revalidate
+ *   - Google Fonts: cache-first, 1-year TTL
+ *   - Financial routes (invoices, payments, billing, tenants, rentals, subscription): network-only (NEVER cached)
+ *   - Livewire / API / POST: network-only (pass-through)
+ *   - All other navigations: network-first → /offline.html fallback
  *
- * Financial data (invoices, payments, tenancies) is NEVER cached
- * for offline reads or writes in this version.
+ * Financial data is NEVER cached for offline reads or writes.
  */
 
-const CACHE_NAME = 'ngeay-juol-shell-v1';
+const CACHE_VERSION = 'v2';
+const SHELL_CACHE   = `ngeay-juol-shell-${CACHE_VERSION}`;
+const FONT_CACHE    = `ngeay-juol-fonts-${CACHE_VERSION}`;
 
-/** Static assets safe to cache for the shell. */
-const SHELL_ASSETS = [
-    '/css/rentwise-admin.css',
-    '/Khmer House Key.png',
+/** Static assets and pages to pre-cache on install */
+const PRECACHE_ASSETS = [
+    '/offline.html',
     '/favicon.ico',
+    '/icons/icon-192.png',
+    '/icons/icon-512.png',
+    '/manifest.json',
+    '/',
+    '/login'
 ];
 
-// ── Install: pre-cache shell ──────────────────────────────────
+/** Routes that must ALWAYS go to the network — no cache reads or writes */
+const NETWORK_ONLY_PREFIXES = [
+    '/landlord/invoices',
+    '/landlord/monthly-billing',
+    '/landlord/payments',
+    '/landlord/tenants',
+    '/landlord/rentals',
+    '/landlord/subscription',
+    '/livewire',
+    '/api',
+    '/locale',
+    '/logout'
+];
+
+// ── Install: pre-cache shell + offline page ─────────────────────
 self.addEventListener('install', (event) => {
     event.waitUntil(
-        caches.open(CACHE_NAME).then((cache) => {
-            return cache.addAll(SHELL_ASSETS.map(url => new Request(url, { credentials: 'same-origin' })));
-        }).catch(() => {
-            // Shell pre-cache failure is non-fatal — app still works online.
-            console.warn('[SW] Shell pre-cache partially failed; continuing.');
+        caches.open(SHELL_CACHE).then((cache) => {
+            return cache.addAll(
+                PRECACHE_ASSETS.map((url) => new Request(url, { credentials: 'same-origin' }))
+            );
+        }).catch((err) => {
+            console.warn('[SW] Pre-cache partially failed:', err);
         })
     );
     self.skipWaiting();
 });
 
-// ── Activate: delete old caches ───────────────────────────────
+// ── Activate: delete stale caches ───────────────────────────────
 self.addEventListener('activate', (event) => {
+    const validCaches = [SHELL_CACHE, FONT_CACHE];
     event.waitUntil(
         caches.keys().then((names) =>
             Promise.all(
                 names
-                    .filter((n) => n !== CACHE_NAME)
+                    .filter((n) => !validCaches.includes(n))
                     .map((n) => caches.delete(n))
             )
         )
@@ -47,56 +70,101 @@ self.addEventListener('activate', (event) => {
     self.clients.claim();
 });
 
-// ── Fetch: cache-first for shell, network-first for everything else ──
+// ── Helpers ──────────────────────────────────────────────────────
+
+function isNetworkOnly(url) {
+    return NETWORK_ONLY_PREFIXES.some((prefix) => url.pathname.startsWith(prefix));
+}
+
+function isStaticAsset(url) {
+    return (
+        url.pathname.startsWith('/build/')   ||
+        url.pathname.startsWith('/icons/')   ||
+        url.pathname === '/favicon.ico'      ||
+        url.pathname === '/manifest.json'
+    );
+}
+
+function isGoogleFont(url) {
+    return url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+}
+
+function isShellRoute(url) {
+    return url.pathname === '/' || url.pathname === '/login' || url.pathname.startsWith('/landlord/simple');
+}
+
+function isNavigation(request) {
+    return request.mode === 'navigate';
+}
+
+async function cacheFirst(request, cacheName) {
+    const cached = await caches.match(request);
+    if (cached) return cached;
+    const response = await fetch(request);
+    if (response.ok) {
+        const cache = await caches.open(cacheName);
+        cache.put(request, response.clone());
+    }
+    return response;
+}
+
+async function staleWhileRevalidate(request, cacheName) {
+    const cache   = await caches.open(cacheName);
+    const cached  = await cache.match(request);
+    const fetchPromise = fetch(request).then((response) => {
+        if (response.ok) cache.put(request, response.clone());
+        return response;
+    }).catch(() => null);
+    return cached || fetchPromise;
+}
+
+async function networkFirstWithOfflineFallback(request) {
+    try {
+        const response = await fetch(request);
+        return response;
+    } catch {
+        const cached = await caches.match(request);
+        if (cached) return cached;
+        // Return the styled offline page for navigation requests
+        return caches.match('/offline.html');
+    }
+}
+
+// ── Fetch handler ────────────────────────────────────────────────
 self.addEventListener('fetch', (event) => {
     const url = new URL(event.request.url);
 
-    // Only handle same-origin GET requests.
-    if (event.request.method !== 'GET' || url.origin !== self.location.origin) {
-        return; // pass through non-GET and cross-origin
-    }
+    // 1. Only handle same-origin GET (Livewire uses POST — passes through automatically)
+    if (event.request.method !== 'GET') return;
 
-    // Financial / dynamic routes — always go online.
-    // Livewire uses POST so it passes through above, but guard named patterns just in case.
-    const alwaysOnline = [
-        '/landlord/invoices',
-        '/landlord/monthly-billing',
-        '/landlord/payments',
-        '/landlord/tenants',
-        '/landlord/units',
-        '/landlord/rentals',
-        '/livewire',
-        '/api',
-        '/locale',
-    ];
-    if (alwaysOnline.some((path) => url.pathname.startsWith(path))) {
-        return; // let browser handle normally
-    }
-
-    // Static assets: cache-first.
-    const isStaticAsset = SHELL_ASSETS.some((a) => url.pathname === a)
-        || url.pathname.startsWith('/build/')
-        || url.pathname.startsWith('/css/')
-        || url.pathname.startsWith('/js/');
-
-    if (isStaticAsset) {
-        event.respondWith(
-            caches.match(event.request).then((cached) => cached || fetch(event.request).then((response) => {
-                const copy = response.clone();
-                caches.open(CACHE_NAME).then((cache) => cache.put(event.request, copy));
-                return response;
-            }))
-        );
+    // 2. Cross-origin: delegate to browser except Google Fonts
+    if (url.origin !== self.location.origin) {
+        if (isGoogleFont(url)) {
+            event.respondWith(cacheFirst(event.request, FONT_CACHE));
+        }
         return;
     }
 
-    // Everything else: network-first with offline fallback message.
-    event.respondWith(
-        fetch(event.request).catch(() => {
-            return new Response(
-                '<!doctype html><html lang="km"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Offline — ngeay juol</title><style>body{font-family:sans-serif;display:flex;align-items:center;justify-content:center;min-height:100vh;margin:0;background:#f0fdf4;color:#1a2e0d}.card{text-align:center;padding:2rem;background:#fff;border-radius:1rem;box-shadow:0 4px 24px #0002;max-width:320px}h1{font-size:1.25rem;margin:0 0 .5rem}p{color:#555;font-size:.9rem}a{color:#059669;font-weight:700}</style></head><body><div class="card"><div style="font-size:2.5rem">📡</div><h1>អ៊ីនធឺណិតត្រូវការ</h1><p>You need an internet connection for billing and payment actions.</p><p style="margin-top:1rem"><a href="/landlord/simple">Try again</a></p></div></body></html>',
-                { headers: { 'Content-Type': 'text/html; charset=utf-8' } }
-            );
-        })
-    );
+    // 3. Financial / dynamic routes: network-only, no caching
+    if (isNetworkOnly(url)) return;
+
+    // 4. Static assets: cache-first
+    if (isStaticAsset(url)) {
+        event.respondWith(cacheFirst(event.request, SHELL_CACHE));
+        return;
+    }
+
+    // 5. Shell navigation routes: stale-while-revalidate (fast load)
+    if (isShellRoute(url)) {
+        event.respondWith(staleWhileRevalidate(event.request, SHELL_CACHE));
+        return;
+    }
+
+    // 6. All other navigation (page requests): network-first → offline.html fallback
+    if (isNavigation(event.request)) {
+        event.respondWith(networkFirstWithOfflineFallback(event.request));
+        return;
+    }
+
+    // 7. Everything else: let the browser handle it
 });
