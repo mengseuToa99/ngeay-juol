@@ -4,7 +4,7 @@ namespace App\Providers\Filament;
 
 use App\Filament\Pages\Auth\Login;
 use App\Filament\Pages\Billing;
-use App\Filament\Pages\ConsumptionHistory;
+
 use App\Filament\Pages\MonthlyBilling;
 use App\Filament\Pages\PropertySettings;
 use App\Filament\Resources\InvoiceResource;
@@ -165,7 +165,6 @@ class LandlordPanelProvider extends PanelProvider
                 Billing::class,
                 MonthlyBilling::class,
                 PropertySettings::class,
-                ConsumptionHistory::class,
                 \App\Filament\Pages\SimpleDashboard::class,
             ])
             ->widgets([

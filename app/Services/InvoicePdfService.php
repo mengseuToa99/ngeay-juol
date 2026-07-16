@@ -32,9 +32,12 @@ class InvoicePdfService
         $browsershot = Browsershot::html($html)
             ->showBackground()
             ->margins(0, 0, 0, 0)
-            ->setChromePath(config('services.browsershot.chrome_path', '/usr/bin/google-chrome'))
             ->setNodeModulePath(config('services.browsershot.node_module_path', base_path('node_modules')))
             ->noSandbox();
+            
+        if ($chromePath = config('services.browsershot.chrome_path')) {
+            $browsershot->setChromePath($chromePath);
+        }
 
         $browsershot->addChromiumArguments(config('services.browsershot.chromium_arguments', []));
         $browsershot->addChromiumArguments(['allow-file-access-from-files']);

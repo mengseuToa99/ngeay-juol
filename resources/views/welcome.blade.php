@@ -58,17 +58,20 @@
     <body class="bg-slate-50 dark:bg-slate-950 text-slate-900 dark:text-slate-100 min-h-screen relative overflow-x-hidden transition-colors duration-300">
         
         <!-- Decorative Ambient Lights -->
-        <div class="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-emerald-400 glow-bg pointer-events-none"></div>
-        <div class="absolute top-[20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-cyan-400 glow-bg pointer-events-none"></div>
-        <div class="absolute bottom-[-10%] left-[20%] w-[700px] h-[700px] rounded-full bg-blue-400 glow-bg pointer-events-none"></div>
+        <div class="absolute inset-0 overflow-hidden pointer-events-none z-0">
+            <div class="absolute top-[-20%] left-[-10%] w-[600px] h-[600px] rounded-full bg-emerald-400 glow-bg"></div>
+            <div class="absolute top-[20%] right-[-10%] w-[500px] h-[500px] rounded-full bg-cyan-400 glow-bg"></div>
+            <div class="absolute bottom-[-10%] left-[20%] w-[700px] h-[700px] rounded-full bg-blue-400 glow-bg"></div>
+        </div>
 
         <!-- Header -->
-        <header class="fixed top-4 left-1/2 -translate-x-1/2 w-[92%] max-w-7xl z-50 rounded-2xl glass shadow-xl transition-all duration-300">
-            <div class="px-6 py-4 flex items-center justify-between">
+        <!-- Header -->
+        <header class="fixed top-0 left-0 right-0 z-50 w-full glass border-b border-slate-200/50 dark:border-slate-800/50 transition-all duration-300">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between">
                 <!-- Logo -->
-                <a href="#" class="flex items-center gap-2 group">
-                    <img src="{{ asset('Khmer%20House%20Key.svg') }}" alt="{{ __('ngeay juol') }}" class="h-10 w-10 rounded-xl shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-300">
-                    <span class="font-display font-extrabold text-2xl tracking-tight text-slate-900 dark:text-white">{{ __('ngeay juol') }}</span>
+                <a href="#" class="flex items-center gap-1.5 sm:gap-2 group">
+                    <img src="{{ asset('Khmer%20House%20Key.svg') }}" alt="{{ __('ngeay juol') }}" class="h-8 w-8 sm:h-10 sm:w-10 rounded-xl shadow-lg shadow-emerald-500/20 group-hover:scale-105 transition-transform duration-300">
+                    <span class="font-display font-extrabold text-xl sm:text-2xl tracking-tight text-slate-900 dark:text-white">{{ __('ngeay juol') }}</span>
                 </a>
 
                 <!-- Navigation Links (Desktop) -->
@@ -80,11 +83,11 @@
                 </nav>
 
                 <!-- Action Buttons -->
-                <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2 sm:gap-4">
                     <!-- Light/Dark Toggle -->
-                    <button id="theme-toggle" class="p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-sm">
+                    <button id="theme-toggle" class="p-2 sm:p-2.5 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-sm">
                         <!-- Sun Icon -->
-                        <svg id="sun-icon" class="w-5 h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <svg id="sun-icon" class="w-4 h-4 sm:w-5 sm:h-5 hidden" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <circle cx="12" cy="12" r="5"></circle>
                             <line x1="12" y1="1" x2="12" y2="3"></line>
                             <line x1="12" y1="21" x2="12" y2="23"></line>
@@ -96,13 +99,13 @@
                             <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line>
                         </svg>
                         <!-- Moon Icon -->
-                        <svg id="moon-icon" class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <svg id="moon-icon" class="w-4 h-4 sm:w-5 sm:h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path>
                         </svg>
                     </button>
 
                     <!-- Language Selector Dropdown -->
-                    <div class="relative" id="lang-dropdown-container">
+                    <div class="hidden sm:block relative" id="lang-dropdown-container">
                         <button id="lang-dropdown-btn" class="flex items-center gap-1.5 px-3 py-2 rounded-xl bg-white/80 dark:bg-slate-900/80 border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all cursor-pointer shadow-sm text-sm font-semibold">
                             <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 21a9.07 9.07 0 01-3.058-2.517 8.997 8.997 0 01-2.222-3.838A8.901 8.901 0 014.5 12c0-1.74.5-3.364 1.358-4.743a8.997 8.997 0 012.222-2.838A9.07 9.07 0 0110.5 3m0 18a9.07 9.07 0 003.058-2.517 8.997 8.997 0 002.222-3.838A8.9 8.9 0 0019.5 12c0-1.74-.5-3.364-1.358-4.743a9.006 9.006 0 00-2.222-2.838A9.07 9.07 0 0013.5 3M10.5 21V3m0 18c-3.13 0-5.659-4.03-5.659-9a13.3 13.3 0 01.127-1.74A13.066 13.066 0 015.63 7m4.87 14c3.13 0 5.659-4.03 5.659-9a13.3 13.3 0 00-.127-1.74A13.066 13.066 0 0015.37 7m-4.87-4c-3.13 0-5.659 4.03-5.659 9m5.659-9c3.13 0 5.659 4.03 5.659 9m-11.318 0h11.318m0 0h11.318"></path></svg>
                             <span>{{ app()->getLocale() === 'km' ? 'ខ្មែរ' : 'English' }}</span>
@@ -129,21 +132,21 @@
                                 $dashboardUrl = route('portal.dashboard');
                             }
                         @endphp
-                        <a href="{{ $dashboardUrl }}" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm">
+                        <a href="{{ $dashboardUrl }}" class="hidden sm:inline-block px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm">
                             {{ __('Go to Dashboard') }}
                         </a>
                     @else
                         <a href="{{ route('login') }}" class="hidden sm:inline-block font-semibold text-slate-700 dark:text-slate-200 hover:text-emerald-500 dark:hover:text-emerald-400 transition-colors mr-2 text-sm">
                             {{ __('Log In') }}
                         </a>
-                        <a href="{{ route('login') }}" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm">
+                        <a href="{{ route('login') }}" class="hidden sm:inline-block px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold shadow-md shadow-emerald-500/20 hover:shadow-lg hover:shadow-emerald-500/30 hover:scale-[1.02] active:scale-[0.98] transition-all text-sm">
                             {{ __('Sign In') }}
                         </a>
                     @endauth
 
                     <!-- Mobile Menu Button -->
-                    <button id="mobile-menu-btn" class="md:hidden p-2 rounded-xl text-slate-700 dark:text-slate-300">
-                        <svg class="w-6 h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <button id="mobile-menu-btn" class="md:hidden p-1.5 sm:p-2 rounded-xl text-slate-700 dark:text-slate-300">
+                        <svg class="w-5 h-5 sm:w-6 sm:h-6" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M4 6h16M4 12h16M4 18h16"></path>
                         </svg>
                     </button>
@@ -162,10 +165,22 @@
                     <span class="text-slate-300">|</span>
                     <a href="{{ route('locale.switch', 'km') }}" class="text-sm {{ app()->getLocale() === 'km' ? 'font-bold text-emerald-500' : 'text-slate-600 dark:text-slate-400' }}">ខ្មែរ</a>
                 </div>
-                @guest
-                    <hr class="border-slate-100 dark:border-slate-800">
-                    <a href="{{ route('login') }}" class="font-medium py-1.5 text-slate-600 dark:text-slate-300 hover:text-emerald-500 transition-colors">{{ __('Log In') }}</a>
-                @endguest
+                @auth
+                    <div class="sm:hidden flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <a href="{{ $dashboardUrl }}" class="w-full text-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold text-sm">
+                            {{ __('Go to Dashboard') }}
+                        </a>
+                    </div>
+                @else
+                    <div class="sm:hidden flex flex-col gap-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+                        <a href="{{ route('login') }}" class="w-full text-center py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-slate-700 dark:text-slate-200 font-semibold text-sm">
+                            {{ __('Log In') }}
+                        </a>
+                        <a href="{{ route('login') }}" class="w-full text-center px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 text-white font-semibold text-sm">
+                            {{ __('Sign In') }}
+                        </a>
+                    </div>
+                @endauth
             </div>
         </header>
 
@@ -456,21 +471,28 @@
             const langBtn = document.getElementById('lang-dropdown-btn');
             const langMenu = document.getElementById('lang-dropdown-menu');
 
-            langBtn.addEventListener('click', function(e) {
+            langBtn?.addEventListener('click', function(e) {
                 e.stopPropagation();
-                langMenu.classList.toggle('hidden');
+                langMenu?.classList.toggle('hidden');
             });
 
             document.addEventListener('click', function() {
-                langMenu.classList.add('hidden');
+                langMenu?.classList.add('hidden');
             });
 
             // Mobile menu toggle logic
             const mobileMenuBtn = document.getElementById('mobile-menu-btn');
             const mobileMenu = document.getElementById('mobile-menu');
 
-            mobileMenuBtn.addEventListener('click', () => {
-                mobileMenu.classList.toggle('hidden');
+            mobileMenuBtn?.addEventListener('click', () => {
+                mobileMenu?.classList.toggle('hidden');
+            });
+
+            // Close mobile menu when clicking any link inside it
+            mobileMenu?.querySelectorAll('a').forEach(link => {
+                link.addEventListener('click', () => {
+                    mobileMenu?.classList.add('hidden');
+                });
             });
         </script>
     </body>

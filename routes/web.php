@@ -29,6 +29,9 @@ Route::middleware(['auth', \App\Http\Middleware\SetLocale::class])->group(functi
     Route::get('landlord/invoices/{invoice}/excel', [InvoiceDocumentController::class, 'excel'])->name('invoices.excel');
     Route::get('landlord/invoices/{invoice}/view', [InvoiceDocumentController::class, 'view'])->name('invoices.view');
 
+    Route::post('api/properties/{property_id}/utility-usages/export', [\App\Http\Controllers\UtilityExportController::class, 'export'])->name('exports.utility-usages');
+    Route::get('api/exports/{file_id}/download', [\App\Http\Controllers\UtilityExportController::class, 'download'])->name('exports.download');
+
     Route::post('landlord/simple-mode/toggle', function (\Illuminate\Http\Request $request) {
         $user = $request->user();
 

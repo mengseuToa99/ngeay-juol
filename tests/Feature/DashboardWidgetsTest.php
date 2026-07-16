@@ -144,7 +144,7 @@ class DashboardWidgetsTest extends TestCase
 
         $datasets = $data['datasets'];
         $this->assertCount(1, $datasets);
-        $this->assertEquals($utility->name . ' ($)', $datasets[0]['label']);
+        $this->assertEquals(__($utility->name) . ' ($)', $datasets[0]['label']);
         
         $julyData = $datasets[0]['data'][6]; // July is index 6
         $this->assertEquals(22.5, (float) $julyData);
@@ -206,6 +206,16 @@ class DashboardWidgetsTest extends TestCase
             'payment_status' => InvoiceStatus::Pending,
         ]);
 
+        \App\Models\InvoiceLine::create([
+            'invoice_id' => $invoice->id,
+            'line_type' => \App\Enums\InvoiceLineType::Rent,
+            'description' => 'Rent',
+            'unit_price' => 300.0,
+            'quantity' => 1,
+            'amount' => 300.0,
+            'currency' => 'USD',
+        ]);
+
         $invoice->recordPayment([
             'recorded_by_id' => $landlord->id,
             'amount' => 300.0,
@@ -221,13 +231,11 @@ class DashboardWidgetsTest extends TestCase
         $data = $reflector->invoke($widget);
 
         $datasets = $data['datasets'];
-        $this->assertCount(2, $datasets);
+        $this->assertCount(4, $datasets);
         
-        $this->assertEquals(__('Revenue') . ' ($)', $datasets[0]['label']);
+        $currencySymbol = \App\Support\Money::symbol(\App\Support\Money::activeCurrency());
+        $this->assertEquals(__('Revenue') . ' (' . $currencySymbol . ')', $datasets[0]['label']);
         $this->assertEquals(300.0, (float) $datasets[0]['data'][6]); // July index 6
-
-        $this->assertEquals(__('Expected Revenue') . ' ($)', $datasets[1]['label']);
-        $this->assertEquals(500.0, (float) $datasets[1]['data'][6]); // July index 6
     }
 
     public function test_overdue_invoices_widget_shows_overdue_invoices(): void

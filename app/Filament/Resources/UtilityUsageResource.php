@@ -4,7 +4,7 @@ namespace App\Filament\Resources;
 
 use App\Enums\ReadingType;
 use App\Filament\Concerns\ScopesToActiveProperty;
-use App\Filament\Pages\ConsumptionHistory;
+
 use App\Filament\Resources\UtilityUsageResource\Pages;
 use App\Models\UtilityUsage;
 use App\Support\ActiveProperty;
@@ -150,16 +150,6 @@ class UtilityUsageResource extends Resource
             ])
             ->actions([
                 Tables\Actions\ActionGroup::make([
-                    // Jump straight to the 12-month view for this row's unit + utility.
-                    Tables\Actions\Action::make('history')
-                        ->label(__('History'))
-                        ->icon('heroicon-o-chart-bar')
-                        ->color('gray')
-                        ->url(fn (UtilityUsage $record) => ConsumptionHistory::getUrl([
-                            'unit' => $record->unit_id,
-                            'utility' => $record->property_utility_id,
-                            'year' => $record->reading_date?->year ?? now()->year,
-                        ], panel: 'landlord')),
                     Tables\Actions\ViewAction::make(),
                     Tables\Actions\EditAction::make(),
                     Tables\Actions\DeleteAction::make(),

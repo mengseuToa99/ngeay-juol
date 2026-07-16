@@ -10,7 +10,7 @@ return new class extends Migration {
         Schema::create('move_in_payment_allocations', function (Blueprint $table) {
             $table->id();
             $table->foreignId('payment_id')->constrained()->cascadeOnDelete();
-            $table->foreignId('rental_move_in_requirement_id')->constrained()->restrictOnDelete();
+            $table->foreignId('rental_move_in_requirement_id')->constrained('rental_move_in_requirements', 'id', 'mip_req_foreign')->restrictOnDelete();
             $table->decimal('amount', 12, 2);
             $table->string('currency', 3);
             $table->decimal('amount_usd', 12, 2)->default(0);
