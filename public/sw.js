@@ -12,7 +12,7 @@
  * Financial data is NEVER cached for offline reads or writes.
  */
 
-const CACHE_VERSION = 'v2';
+const CACHE_VERSION = 'v3';
 const SHELL_CACHE   = `ngeay-juol-shell-${CACHE_VERSION}`;
 const FONT_CACHE    = `ngeay-juol-fonts-${CACHE_VERSION}`;
 
@@ -22,9 +22,7 @@ const PRECACHE_ASSETS = [
     '/favicon.ico',
     '/icons/icon-192.png',
     '/icons/icon-512.png',
-    '/manifest.json',
-    '/',
-    '/login'
+    '/manifest.json'
 ];
 
 /** Routes that must ALWAYS go to the network — no cache reads or writes */
@@ -90,7 +88,7 @@ function isGoogleFont(url) {
 }
 
 function isShellRoute(url) {
-    return url.pathname === '/' || url.pathname === '/login' || url.pathname.startsWith('/landlord/simple');
+    return false;
 }
 
 function isNavigation(request) {

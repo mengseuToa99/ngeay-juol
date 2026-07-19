@@ -60,6 +60,22 @@ class LoginController extends Controller
 
     protected function redirectUser($user)
     {
+        $intended = session()->get('url.intended');
+        if ($intended) {
+            $path = parse_url($intended, PHP_URL_PATH) ?: '';
+            $path = '/' . ltrim($path, '/');
+
+            if ($user->hasAnyRole(['landlord', 'landlord_manager'])) {
+                if ($path === '/admin' || str_starts_with($path, '/admin/')) {
+                    session()->forget('url.intended');
+                }
+            } elseif ($user->hasRole('tenant')) {
+                if ($path === '/admin' || str_starts_with($path, '/admin/') || $path === '/landlord' || str_starts_with($path, '/landlord/')) {
+                    session()->forget('url.intended');
+                }
+            }
+        }
+
         if ($user->isPlatformStaff()) {
             return redirect()->intended(route('filament.admin.pages.dashboard'));
         }
