@@ -103,7 +103,8 @@ class LandlordPanelProvider extends PanelProvider
                 PanelsRenderHook::BODY_END,
                 fn (): string => Blade::render(
                     '<script>if("serviceWorker" in navigator){window.addEventListener("load",()=>{navigator.serviceWorker.register("/sw.js").catch(()=>{})})}</script>' .
-                    '@include(\'filament.components.pwa-install-banner\')'
+                    '@include(\'filament.components.pwa-install-banner\')' .
+                    '@include(\'components.rw-print-script\')'
                 ),
             )
             ->renderHook(

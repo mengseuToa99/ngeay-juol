@@ -17,5 +17,6 @@
 
         @include('components.invoice-slip-modal', ['invoice' => $invoice])
     </main>
+    @include('components.rw-print-script')
 </body>
 </html>

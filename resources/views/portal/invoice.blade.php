@@ -6,5 +6,6 @@
     </div>
 
     @include('components.invoice-slip-modal', ['invoice' => $invoice])
+    @include('components.rw-print-script')
 @endsection
 

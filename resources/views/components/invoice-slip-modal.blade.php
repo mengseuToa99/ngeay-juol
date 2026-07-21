@@ -161,19 +161,29 @@
         .rw-notes p { margin: 0; font-size: .8rem; color: var(--rw-ink-soft); line-height: 1.5; }
     </style>
 
-    {{-- Toolbar (screen only — printing/PDF is server-rendered, so no browser headers) --}}
+    {{-- Toolbar (screen only — printing/PDF is server-rendered, so no browser headers).
+         Print: desktop opens the inline PDF (browser print preview). Phones/PWA have no
+         inline PDF viewer, so there we fetch the PDF and hand it to the system share
+         sheet (navigator.share) — from which the user can print or send it (Telegram…). --}}
     <div class="rw-invoice-toolbar">
         <a href="{{ route('invoices.view', ['invoice' => $invoice]) }}"
            class="rw-btn rw-btn--ghost">
             {{ __('View details') }}
         </a>
-        <a href="{{ route('invoices.pdf', ['invoice' => $invoice, 'size' => 'a4', 'mode' => 'stream']) }}"
-           target="_blank" rel="noopener" class="rw-btn rw-btn--primary">
+        <button type="button" class="rw-btn rw-btn--primary"
+                data-stream-url="{{ route('invoices.pdf', ['invoice' => $invoice, 'size' => 'a4', 'mode' => 'stream']) }}"
+                data-download-url="{{ route('invoices.pdf', ['invoice' => $invoice, 'size' => 'a4']) }}"
+                data-filename="{{ \App\Services\InvoicePdfService::filename($invoice, 'pdf') }}"
+                data-preparing="{{ __('Preparing…') }}"
+                onclick="rwPrintInvoice(this)">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" data-slot="icon">
                 <path fill-rule="evenodd" d="M5 2.75C5 1.784 5.784 1 6.75 1h6.5c.966 0 1.75.784 1.75 1.75v1.5A1.75 1.75 0 0 1 16.75 6H18a2 2 0 0 1 2 2v6a2 2 0 0 1-2 2h-.25v1.25a1.75 1.75 0 0 1-1.75 1.75h-8.5A1.75 1.75 0 0 1 4 17.25V16H3.75A2 2 0 0 1 1.75 14V8a2 2 0 0 1 2-2h1.25A1.75 1.75 0 0 1 6.75 4.25v-1.5ZM6.5 4.25c0-.138.112-.25.25-.25h6.5c.138 0 .25.112.25.25v1.5c0 .138-.112.25-.25.25h-6.5a.25.25 0 0 1-.25-.25v-1.5ZM5.5 17.25c0-.138.112-.25.25-.25h8.5c.138 0 .25.112.25.25v-3.5c0-.138-.112-.25-.25-.25h-8.5c-.138 0-.25.112-.25.25v3.5Z" clip-rule="evenodd" />
             </svg>
-            {{ __('Print') }}
-        </a>
+            <span data-label>{{ __('Print') }}</span>
+        </button>
+        {{-- window.rwPrintInvoice is loaded globally (components.rw-print-script):
+             scripts inside this component would not execute when Livewire injects
+             it into a Filament modal. --}}
         <a href="{{ route('invoices.pdf', ['invoice' => $invoice, 'size' => 'a4']) }}"
            target="_blank" rel="noopener" class="rw-btn rw-btn--ghost">
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" aria-hidden="true" data-slot="icon">
